@@ -540,15 +540,15 @@ export function postMatch(payload: {
   if (CLOUD) {
     return request<MatchPostResult>("/api/matches", { method: "POST", body: JSON.stringify(payload) }).then((r) => {
       if (r) return r;
-      return postMatchLocal(payload, null);
+      return postMatchLocal(payload);
     });
   }
-  return postMatchLocal(payload, null);
+  return postMatchLocal(payload);
 }
 
 const BOT_MMRS: Record<string, number> = { duelist: 900, gambler: 1050, collector: 1150, archivist: 1400 };
 
-function postMatchLocal(payload: Parameters<typeof postMatch>[0], _unused: null): Promise<MatchPostResult> {
+function postMatchLocal(payload: Parameters<typeof postMatch>[0]): Promise<MatchPostResult> {
   const profile = localProfile();
   const botMmr = BOT_MMRS[payload.opponentKey] ?? 1000;
   const { delta, newMmr } = eloDelta(profile.mmr, botMmr, payload.result);

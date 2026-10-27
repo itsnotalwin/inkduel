@@ -5,7 +5,8 @@
  *  3. restore src/app/api — always, even on failure
  * Output lands in ./out
  */
-import { cpSync, existsSync, rmSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const apiDir = "src/app/api";
@@ -39,6 +40,26 @@ try {
     rmSync(stashDir, { recursive: true, force: true });
     console.log("api routes restored");
   }
+}
+
+if (code === 0) {
+  // inject every hashed asset into the service-worker precache list
+  const assets = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, entry.name);
+      if (entry.isDirectory()) walk(p);
+      else if (statSync(p).isFile()) assets.push("./" + relative("out", p).replace(/\\/g, "/"));
+    }
+  };
+  walk(join("out", "_next"));
+  for (const extra of ["icon.svg", "favicon.ico"]) {
+    if (existsSync(join("out", extra))) assets.push("./" + extra);
+  }
+  const swPath = join("out", "sw.js");
+  const sw = readFileSync(swPath, "utf8");
+  writeFileSync(swPath, sw.replace("/*__ASSETS__*/[]", JSON.stringify(assets)));
+  console.log(`service worker precache injected: ${assets.length} assets`);
 }
 
 process.exit(code);
