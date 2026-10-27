@@ -8,10 +8,11 @@ distinct personalities, climb an Elo ladder, build 20-card decks from a
 meta on *The Daily Ink*.
 
 **Play now:** https://itsnotalwin.github.io/inkduel/ (the "paper edition" —
-the whole game runs client-side, progress lives in your browser). The repo
-also contains the full-stack edition: clone, `npm run db:push && npm run
-db:seed && npm run dev` for server-side Elo, achievements, replays and
-cross-device profiles.
+the whole game runs client-side, progress lives in your browser, and it's a
+**PWA**: install it from your browser and play with the network completely
+off). The repo also contains the full-stack edition: clone, `npm run db:push
+&& npm run db:seed && npm run dev` for server-side Elo, achievements, replays
+and cross-device profiles.
 
 ## Quick start
 
@@ -63,8 +64,14 @@ node scripts/api-smoke.mjs     # end-to-end API smoke test
 
 - **GitHub Pages (paper edition):** push to `main` → `.github/workflows/deploy-pages.yml`
   runs `node scripts/build-pages.mjs` (stashes the API routes, static-exports
-  with `NEXT_PUBLIC_CLOUD=0`, restores them) and deploys `out/` with
-  `basePath = /<repo name>`. Everything persists to localStorage.
+  with `NEXT_PUBLIC_CLOUD=0`, restores them, injects the asset precache list
+  into `out/sw.js`) and deploys `out/` with `basePath = /<repo name>`.
+  Everything persists to localStorage.
+- **PWA / offline:** `public/sw.js` precaches every page and hashed asset at
+  install, serves navigations network-first with cache fallbacks (and `.html`
+  twins for extensionless URLs), cache-first for immutable build output, and
+  stale-while-revalidate for the rest. The web manifest makes it installable;
+  icons live in `public/icon-*.png`.
 - **Full-stack edition:** run `npm run build && npm start` on any Node host
   (Vercel/Render/a VPS); SQLite lives at `prisma/dev.db`.
 
