@@ -7,6 +7,12 @@ distinct personalities, climb an Elo ladder, build 20-card decks from a
 40-card collection, unlock legendaries through achievements, and read the
 meta on *The Daily Ink*.
 
+**Play now:** https://itsnotalwin.github.io/inkduel/ (the "paper edition" —
+the whole game runs client-side, progress lives in your browser). The repo
+also contains the full-stack edition: clone, `npm run db:push && npm run
+db:seed && npm run dev` for server-side Elo, achievements, replays and
+cross-device profiles.
+
 ## Quick start
 
 ```bash
@@ -43,7 +49,7 @@ node scripts/api-smoke.mjs     # end-to-end API smoke test
 ## Stretch goals — all shipped
 
 - **Replay viewer** — every ranked match stores its full action tape; step
-  through it at `/replays/[id]` (linked from the profile's match history) with
+  through it at `/replays?id=…` (linked from the profile's match history) with
   play/pause, scrubbing, and per-step commentary. Tapes replay deterministically
   from the stored seed + decks.
 - **Ambient soundscape** — a procedural paper-noise floor and ink-drone
@@ -52,6 +58,15 @@ node scripts/api-smoke.mjs     # end-to-end API smoke test
 - **Pass & play (hot-seat)** — `?mode=hotseat` on the duel: two humans share one
   device with a "PASS THE DEVICE" interstitial so hands stay secret. Friendly
   duels only — no MMR, no posting.
+
+## Deployment
+
+- **GitHub Pages (paper edition):** push to `main` → `.github/workflows/deploy-pages.yml`
+  runs `node scripts/build-pages.mjs` (stashes the API routes, static-exports
+  with `NEXT_PUBLIC_CLOUD=0`, restores them) and deploys `out/` with
+  `basePath = /<repo name>`. Everything persists to localStorage.
+- **Full-stack edition:** run `npm run build && npm start` on any Node host
+  (Vercel/Render/a VPS); SQLite lives at `prisma/dev.db`.
 
 ## Opponents
 
