@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id           String   @id @default(uuid())
+  name         String
+  tag          String   @default("#0001")
+  mmr          Int      @default(1000)
+  wins         Int      @default(0)
+  losses       Int      @default(0)
+  draws        Int      @default(0)
+  streak       Int      @default(0)
+  bestStreak   Int      @default(0)
+  settings     Json
+  sessionToken String?  @unique
+  createdAt    DateTime @default(now())
+  lastSeenAt   DateTime @default(now()) @updatedAt
+
+  decks         Deck[]
+  matches       Match[]
+  achievements  PlayerAchievement[]
+  quests        DailyQuest[]
+
+  @@unique([name, tag])
+  @@index([mmr])
+}
+
+model Card {
+  id     String @id
+  name   String
+  type   String
+  cost   Int
+  atk    Int?
+  hp     Int?
+  rarity String
+}
+
+model Deck {
+  id        String   @id @default(uuid())
+  playerId  String
+  name      String
+  cards     Json
+  isCustom  Boolean  @default(false)
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId])
+}
+
+model Match {
+  id              String   @id @default(uuid())
+  playerId        String
+  opponentKey     String
+  result          String
+  playerHpLeft    Int
+  botHpLeft       Int
+  turns           Int
+  playerMmrBefore Int
+  playerMmrAfter  Int
+  botMmr          Int
+  durationMs      Int      @default(0)
+  seed            Int
+  deckUsed        Json
+  actionLog       Json?
+  actions         Json?
+  maxTurnDamage   Int      @default(0)
+  maxTurnKills    Int      @default(0)
+  tookFatigue     Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId])
+  @@index([createdAt])
+}
+
+model Achievement {
+  key         String @id
+  name        String
+  description String
+  icon        String
+  unlocksCard String?
+
+  players PlayerAchievement[]
+}
+
+model PlayerAchievement {
+  playerId       String
+  achievementKey String
+  unlockedAt     DateTime @default(now())
+
+  player      Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementKey], references: [key], onDelete: Cascade)
+
+  @@id([playerId, achievementKey])
+}
+
+model DailyQuest {
+  id          String  @id @default(uuid())
+  playerId    String
+  date        String
+  templateKey String
+  target      Int
+  progress    Int     @default(0)
+  completed   Boolean @default(false)
+  claimedAt   DateTime?
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, date])
+}
+
+model CardStat {
+  cardId      String @id
+  gamesPlayed Int    @default(0)
+  wins        Int    @default(0)
+}
