@@ -49,6 +49,14 @@ node scripts/api-smoke.mjs     # end-to-end API smoke test
 
 ## Stretch goals — all shipped
 
+- **Prologue cutscene + onboarding** — a six-scene animated intro (the game's
+  own "onboarding video"): ink bottle, cards fanning out, the duelists, a
+  golem brawl, the archive ledger. First-time PLAY routes through it; a
+  "replay intro & tips" link on home resets it. First duel adds contextual
+  tip cards (mana, targeting, attacking, winning) triggered by game state.
+- **Card cutscenes** — legendaries get a full-screen summon flourish during
+  duels, and epic/legendary pack pulls trigger a stamp interstitial before
+  the reveal.
 - **Replay viewer** — every ranked match stores its full action tape; step
   through it at `/replays?id=…` (linked from the profile's match history) with
   play/pause, scrubbing, and per-step commentary. Tapes replay deterministically
@@ -59,6 +67,11 @@ node scripts/api-smoke.mjs     # end-to-end API smoke test
 - **Pass & play (hot-seat)** — `?mode=hotseat` on the duel: two humans share one
   device with a "PASS THE DEVICE" interstitial so hands stay secret. Friendly
   duels only — no MMR, no posting.
+- **Ink economy + gacha packs** — win duels, clear campaign stages, and log in
+  daily for ink; tear open 5-card packs (70/20/8/2 odds, rare+ floor, duplicate
+  refunds) at `/packs`.
+- **The Archive Campaign** — a 12-stage PvE ladder at `/campaign` against
+  fixed AI decks with escalating rewards and milestone card unlocks.
 
 ## Deployment
 
