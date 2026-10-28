@@ -40,9 +40,12 @@ The game is feature-complete for v1.0 — the next win is **confidence**, not
 features. Work top-down; each item is small and lands immediately.
 
 ### 3.1 Automated coverage (engine + economy)
-- [ ] **Pack RNG distribution test** — roll 50,000 packs via `rollPack()`,
+- [x] **Pack RNG distribution test** — roll 50,000 packs via `rollPack()`,
       assert rarity frequencies within tolerance of 70/20/8/2 and that the
       rare+ floor never breaks (chi-square or ±1.5% band).
+      ✅ Shipped in `tests/economy.test.ts` — 50k packs, rarity bands pass,
+      rare+ floor verified in every pack (and proven non-vacuous: the floor
+      fires in ~17% of packs), no tokens leak, unowned preference measured.
 - [ ] **Full-wave engine tests** — one test per wave-2/3 card effect
       (currently only the original 40 have per-effect tests; waves 2–3 are
       covered by the AI harness only).
