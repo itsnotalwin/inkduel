@@ -23,6 +23,8 @@ import { eloDelta } from "@/lib/elo";
 import { sound } from "@/lib/sound";
 import { ambient } from "@/lib/ambient";
 import { completeCampaignStage, ensureGuest, getDecks, postMatch, type CampaignResult, type MatchPostResult } from "@/lib/api";
+import { LegendaryFlourish, type FlourishState } from "./LegendaryFlourish";
+import { dismissTutorialTip, readTutorialFlags, TutorialTip, type TutorialFlags } from "@/components/onboarding/Tutorial";
 import { CardFace } from "@/components/card/CardFace";
 import { StampButton, Stamp, HandNote, WashiTape } from "@/components/paper";
 import {
@@ -54,9 +56,10 @@ interface AnimState {
   banner: { id: number; text: string; tone: "ink" | "red" } | null;
   shake: number;
   dust: { id: number; key: string }[];
+  flourish: { id: number; cardId: string; side: Side } | null;
 }
 
-const EMPTY_ANIM: AnimState = { floaters: [], slash: null, lungingUid: null, banner: null, shake: 0, dust: [] };
+const EMPTY_ANIM: AnimState = { floaters: [], slash: null, lungingUid: null, banner: null, shake: 0, dust: [], flourish: null };
 
 let animId = 1;
 
@@ -103,6 +106,9 @@ export default function DuelClient() {
   const [timer, setTimer] = useState(TURN_SECONDS);
   const [muted, setMuted] = useState(false);
   const [awaitingPass, setAwaitingPass] = useState(false);
+  const [tutorial, setTutorial] = useState<TutorialFlags>(() => ({
+    tipWelcome: false, tipMana: false, tipPlay: false, tipAttack: false, tipWin: false, tipTempo: false,
+  }));
   const [result, setResult] = useState<
     { result: "WIN" | "LOSS" | "DRAW"; mmrBefore: number; mmrAfter: number; server?: MatchPostResult; campaign?: CampaignResult } | null
   >(null);
@@ -185,8 +191,9 @@ export default function DuelClient() {
   }, [hotseat, searchParams]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration of the mute preference
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration of persisted preferences (mute + tutorial)
     setMuted(sound.muted);
+    setTutorial(readTutorialFlags());
     void startMatch();
   }, [startMatch]);
 
@@ -204,10 +211,17 @@ export default function DuelClient() {
           case "MULLIGAN_REDRAW":
             sound.paperSlide();
             break;
-          case "PLAY_CARD":
+          case "PLAY_CARD": {
             sound.penScratch();
             next.dust = [...next.dust, { id: animId++, key: `u:${e.uid}` }];
+            const pulled = getCard(e.cardId);
+            if (pulled.rarity === "legendary") {
+              next.flourish = { id: animId++, cardId: e.cardId, side: e.side };
+              sound.stampThunk();
+              window.setTimeout(() => setAnim((cur) => ({ ...cur, flourish: null })), 2000);
+            }
             break;
+          }
           case "SPELL":
             sound.penScratch();
             break;
@@ -436,6 +450,33 @@ export default function DuelClient() {
     return set;
   }, [targeting, legal]);
 
+  // ── onboarding tutorial: one contextual tip at a time ─────────────────
+  // Derived from the action log (render-safe) rather than refs.
+  const hasPlayed = useMemo(
+    () => !!state && state.log.some((l) => l.side === "A" && / plays | casts /.test(l.text)),
+    [state],
+  );
+  const hasAttacked = useMemo(
+    () => !!state && state.log.some((l) => l.side === "A" && / strikes | attacks /.test(l.text)),
+    [state],
+  );
+  const currentTip = useMemo<keyof TutorialFlags | null>(() => {
+    if (!state || hotseat) return null;
+    if (tutorial.tipWelcome && state.phase === "MULLIGAN") return "tipWelcome";
+    if (!isPlayerTurn) return null;
+    if (tutorial.tipMana) return "tipMana";
+    if (tutorial.tipPlay && !hasPlayed) return "tipPlay";
+    if (tutorial.tipAttack && hasPlayed && !hasAttacked) return "tipAttack";
+    if (tutorial.tipWin && hasAttacked) return "tipWin";
+    if (tutorial.tipTempo && state.turn >= 3) return "tipTempo";
+    return null;
+  }, [state, hotseat, tutorial, isPlayerTurn, hasPlayed, hasAttacked]);
+
+  const dismissTip = useCallback((tip: keyof TutorialFlags) => {
+    setTutorial((prev) => ({ ...prev, [tip]: false }));
+    dismissTutorialTip(tip);
+  }, []);
+
   // ── interactions ──────────────────────────────────────────────────────
   const actSide: Side = state?.current ?? "A";
   const onHandCardClick = (uid: string) => {
@@ -575,6 +616,8 @@ export default function DuelClient() {
       }}
     >
       {anim.banner && <TurnBanner key={anim.banner.id} text={anim.banner.text} tone={anim.banner.tone} />}
+      <LegendaryFlourish flourish={anim.flourish ? { ...anim.flourish } : null} />
+      <TutorialTip tip={currentTip} onDismiss={dismissTip} />
 
       {/* shake wrapper */}
       <motion.div

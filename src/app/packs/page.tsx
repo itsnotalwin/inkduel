@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ensureGuest, getMe, openPacks, type MeProfile, type PackResult } from "@/lib/api";
 import { getCard } from "@/game/cards";
+import { sound } from "@/lib/sound";
 import { CardFace } from "@/components/card/CardFace";
 import { HandNote, Panel, Stamp, StampButton, WashiTape } from "@/components/paper";
 import { PACK_COST } from "@/game/packs";
@@ -16,12 +17,20 @@ const RARITY_TONE: Record<string, "ink" | "red"> = {
   legendary: "red",
 };
 
+const RARITY_ORDER: Record<string, number> = {
+  common: 0,
+  rare: 1,
+  epic: 2,
+  legendary: 3,
+};
+
 export default function PacksPage() {
   const [me, setMe] = useState<MeProfile | null>(null);
   const [opening, setOpening] = useState(false);
   const [result, setResult] = useState<PackResult | null>(null);
   const [revealed, setRevealed] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [pullScene, setPullScene] = useState<{ cardId: string; legendary: boolean } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -35,11 +44,23 @@ export default function PacksPage() {
     setError(null);
     setResult(null);
     setRevealed(0);
+    setPullScene(null);
     const res = await openPacks(packs);
     setOpening(false);
     if (!res) {
       setError("Not enough ink for that many packs.");
       return;
+    }
+    // cutscene: the highest-rarity pull gets a full-screen interstitial
+    const best = [...res.cards].sort(
+      (a, b) => RARITY_ORDER[getCard(b.cardId).rarity] - RARITY_ORDER[getCard(a.cardId).rarity],
+    )[0];
+    const bestRarity = getCard(best.cardId).rarity;
+    if (bestRarity === "legendary" || bestRarity === "epic") {
+      setPullScene({ cardId: best.cardId, legendary: bestRarity === "legendary" });
+      sound.stampThunk();
+      await new Promise((r) => setTimeout(r, bestRarity === "legendary" ? 2600 : 1500));
+      setPullScene(null);
     }
     setResult(res);
     setMe((prev) => (prev ? { ...prev, coins: res.coinsAfter } : prev));
@@ -54,6 +75,50 @@ export default function PacksPage() {
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-6 pb-16">
+      {/* cutscene: legendary/epic pull interstitial */}
+      <AnimatePresence>
+        {pullScene && (
+          <motion.div
+            key="pull"
+            className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-5"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 1, 1, 1, 0] }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: pullScene.legendary ? 2.6 : 1.5, times: [0, 0.15, 0.7, 0.9, 1] }}
+            style={{ background: pullScene.legendary ? "rgba(23,20,15,0.85)" : "rgba(23,20,15,0.6)" }}
+          >
+            <motion.div
+              initial={{ scale: pullScene.legendary ? 3 : 2, opacity: 0, rotate: pullScene.legendary ? -14 : -8 }}
+              animate={{ scale: 1, opacity: 1, rotate: -4 }}
+              transition={{ type: "spring", stiffness: 280, damping: 16 }}
+            >
+              <Stamp tone="red" className={pullScene.legendary ? "text-5xl md:text-7xl" : "text-4xl"}>
+                {pullScene.legendary ? "LEGENDARY" : "EPIC PULL"}
+              </Stamp>
+            </motion.div>
+            <motion.div
+              initial={{ y: 30, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="ink-frame p-2"
+              style={{ boxShadow: "0 18px 60px rgba(0,0,0,0.5)" }}
+            >
+              <div className="h-[30vh] w-[21vh] min-h-[180px] min-w-[130px]">
+                <CardFace card={getCard(pullScene.cardId)} size="collection" />
+              </div>
+            </motion.div>
+            <motion.p
+              className="font-hand text-2xl"
+              style={{ color: "var(--color-paper)" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7 }}
+            >
+              {getCard(pullScene.cardId).name} joins your collection
+            </motion.p>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <header className="mt-10 text-center">
         <div className="label-type text-[11px] text-graphite">THE INK VAULT · PACKS &amp; PULLS</div>
         <h1 className="small-caps mt-1 border-y-4 border-ink py-3 text-5xl font-bold">Card Packs</h1>

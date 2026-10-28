@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ensureGuest, getMe, getMeta, getQuestToday, type MeProfile, type MetaData, type QuestDto } from "@/lib/api";
+import { resetTutorialFlags } from "@/components/onboarding/Tutorial";
 import { HandNote, StampButton, Stamp, WashiTape } from "@/components/paper";
 import { RankBadge } from "@/components/rank-badge";
 import { CardFace } from "@/components/card/CardFace";
@@ -36,9 +37,16 @@ export default function HomePage() {
   const [me, setMe] = useState<MeProfile | null>(null);
   const [quest, setQuest] = useState<QuestDto | null>(null);
   const [meta, setMeta] = useState<MetaData | null>(null);
+  const [playHref, setPlayHref] = useState("/duel");
 
   useEffect(() => {
     void (async () => {
+      // route first-time players through the prologue before their first duel
+      if (window.localStorage.getItem("inkduel:seenPrologue") === "1") {
+        setPlayHref("/duel");
+      } else {
+        setPlayHref("/prologue");
+      }
       await ensureGuest();
       const [meData, q, m] = await Promise.all([getMe(), getQuestToday(), getMeta()]);
       setMe(meData);
@@ -127,7 +135,7 @@ export default function HomePage() {
             </p>
           </div>
           <div className="mt-8 flex flex-wrap items-center gap-5">
-            <Link href="/duel">
+            <Link href={playHref}>
               <motion.span
                 className="inline-block"
                 whileHover={{ rotate: -2, scale: 1.04 }}
@@ -144,6 +152,19 @@ export default function HomePage() {
               </HandNote>
             </Link>
             <HandNote className="text-2xl">← it only takes one pen</HandNote>
+          </div>
+          <div className="mt-3">
+            <button
+              type="button"
+              className="focus-ink label-type text-[10px] text-graphite underline underline-offset-4"
+              onClick={() => {
+                window.localStorage.removeItem("inkduel:seenPrologue");
+                resetTutorialFlags();
+                window.location.href = "/prologue";
+              }}
+            >
+              ⟲ replay the intro &amp; first-duel tips
+            </button>
           </div>
 
           {/* spotlight cards dealing in */}
