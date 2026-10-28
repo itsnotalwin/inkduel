@@ -103,12 +103,13 @@ node scripts/api-smoke.mjs     # end-to-end API smoke test
   given a seed (mulberry32 inside the state); exposes `createGame`, `getLegalActions`,
   `applyAction`, and an event queue the UI drains for animation.
 - `src/game/ai.ts` — the four policies as greedy heuristic scorers over legal actions.
-- `src/game/cards.ts` — the 40 collectible cards + 4 tokens; single source of truth.
-- `src/lib/cards/art/` — 44 hand-authored inline SVG illustrations (stroke #17140F, w3).
+- `src/game/cards.ts` — 96 collectible cards + 5 tokens across three waves; single source of truth.
+- `src/lib/cards/art/` — 101 hand-authored inline SVG illustrations (stroke #17140F, w3).
 - `src/app/api/*` — Next.js route handlers, Zod-validated, `{ok, data|error}` envelope.
 - `prisma/schema.prisma` — Player, Card, Deck, Match, Achievement, DailyQuest, CardStat.
 - Sounds are 100% procedural (Web Audio API); animation via Framer Motion honoring
   `prefers-reduced-motion`.
 
-See `DEVIATIONS.md` for spec judgment calls and `EFFECTS.md` for the
-per-effect verification checklist.
+See `DEVIATIONS.md` for spec judgment calls, `EFFECTS.md` for the per-effect
+verification checklist, and `ROADMAP.md` for what comes next — the testing
+plan, balance pass, and future features (multiplayer, seasons, crafting).
