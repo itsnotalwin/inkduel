@@ -565,6 +565,7 @@ export default function DuelClient() {
             name={foe.name}
             hp={foe.heroHp}
             side={OTHER[viewer]}
+            label="OPPONENT"
             active={state.current === OTHER[viewer] && state.phase === "TURN"}
             highlight={targetingActive && highlightedTargets.has(`h:${OTHER[viewer]}`)}
             dimmed={targetingActive && !highlightedTargets.has(`h:${OTHER[viewer]}`)}
@@ -612,6 +613,7 @@ export default function DuelClient() {
             name={me.name}
             hp={me.heroHp}
             side={viewer}
+            label={hotseat ? (viewer === "A" ? "PLAYER 1" : "PLAYER 2") : "YOU"}
             active={isPlayerTurn}
             highlight={targetingActive && highlightedTargets.has(`h:${viewer}`)}
             dimmed={targetingActive && !highlightedTargets.has(`h:${viewer}`)}
@@ -718,22 +720,30 @@ export default function DuelClient() {
         </Link>
       </div>
 
-      {/* turn log drawer */}
+      {/* turn log — bottom sheet on phones, side drawer on desktop */}
       <AnimatePresence>
         {logOpen && (
           <motion.aside
             key="log"
-            className="ink-frame fixed right-3 top-14 z-30 w-72 max-w-[80vw] p-3"
-            initial={reduce ? { opacity: 0 } : { opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={reduce ? { opacity: 0 } : { opacity: 0, x: 40 }}
+            className="ink-frame fixed inset-x-2 bottom-2 z-30 max-h-[55vh] overflow-hidden p-3 md:inset-x-auto md:bottom-auto md:right-3 md:top-14 md:max-h-[60vh] md:w-72"
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 60 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, y: 60 }}
             style={{ background: "var(--color-cardstock)" }}
           >
-            <div className="label-type mb-2 text-xs text-graphite">Turn log</div>
-            <div className="max-h-[50vh] space-y-1 overflow-y-auto pr-1" style={{ fontFamily: "var(--font-type)", fontSize: 11 }}>
+            <div className="label-type mb-2 flex items-center justify-between text-xs text-graphite">
+              Turn log
+              <button
+                type="button"
+                className="stamp-btn px-2 py-0.5 text-[10px] md:hidden"
+                onClick={() => setLogOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="max-h-[44vh] space-y-1 overflow-y-auto pr-1 md:max-h-[50vh]" style={{ fontFamily: "var(--font-type)", fontSize: 11 }}>
               {[...state.log].slice(-40).reverse().map((l, i) => (
                 <p key={i} className={l.side === "A" ? "text-ink" : l.side === "B" ? "text-graphite" : "text-pencil"}>
-                  {l.side === "sys" ? "" : ""}
                   {l.text}
                 </p>
               ))}

@@ -76,6 +76,26 @@ export const CARDS: CardDef[] = [
   C({ id: "the_archivist", name: "The Archivist", type: "unit", cost: 9, attack: 7, health: 9, rarity: "legendary", text: "On play: draw cards until you have 8 in hand", lore: "Knows where everything is. Including you.", onPlay: [{ kind: "DRAW_UNTIL", handSize: 8 }] }),
   C({ id: "the_unwritten", name: "The Unwritten", type: "unit", cost: 10, attack: 10, health: 10, rarity: "legendary", keywords: ["swift", "twinstrike"], text: "Swift, Twinstrike", lore: "The blank page at the end of every book." }),
 
+  // ── Units — second wave ─────────────────────────────────────
+  C({ id: "marginalia", name: "Marginalia", type: "unit", cost: 1, attack: 1, health: 3, rarity: "common", text: "Echo: draw 1 card", lore: "The reader before you left a map.", echo: [{ kind: "DRAW", n: 1 }] }),
+  C({ id: "paper_airplane", name: "Paper Airplane", type: "unit", cost: 2, attack: 3, health: 1, rarity: "common", text: "On play: deal 1 damage to the enemy hero", lore: "Sent during class. Always lands.", onPlay: [{ kind: "DEAL_DAMAGE", n: 1, target: "enemyHero" }] }),
+  C({ id: "inkwell_serpent", name: "Inkwell Serpent", type: "unit", cost: 2, attack: 1, health: 4, rarity: "rare", keywords: ["guard"], text: "Guard", lore: "It guards the well. The well guards it." }),
+  C({ id: "glue_stick", name: "Glue Stick", type: "unit", cost: 3, attack: 2, health: 3, rarity: "common", text: "On play: give a friendly unit +0/+2", lore: "Everything sticks with it.", onPlay: [{ kind: "BUFF", hp: 2, target: "chosenFriendly" }] }),
+  C({ id: "wax_seal_warden", name: "Wax Seal Warden", type: "unit", cost: 3, attack: 2, health: 3, rarity: "rare", keywords: ["twinstrike"], text: "Twinstrike", lore: "Pressed twice for permanence." }),
+  C({ id: "typewriter_terror", name: "Typewriter Terror", type: "unit", cost: 4, attack: 3, health: 4, rarity: "epic", text: "On play: deal 2 damage to any target", lore: "It types. It clacks. It targets.", onPlay: [{ kind: "DEAL_DAMAGE", n: 2, target: "any" }] }),
+  C({ id: "sticky_note", name: "Sticky Note", type: "unit", cost: 4, attack: 2, health: 6, rarity: "rare", keywords: ["guard"], text: "Guard. Echo: restore 2 HP to your hero", lore: "DON'T FORGET: hold the line.", echo: [{ kind: "HEAL_HERO", n: 2 }] }),
+  C({ id: "laminated_legend", name: "Laminated Legend", type: "unit", cost: 6, attack: 5, health: 8, rarity: "epic", keywords: ["guard"], text: "Guard. Echo: summon a 3/3 Ink Golem", lore: "Immortalized. Literally.", echo: [{ kind: "SUMMON", token: "ink_golem", count: 1 }] }),
+  C({ id: "the_red_thesaurus", name: "The Red Thesaurus", type: "unit", cost: 5, attack: 4, health: 4, rarity: "legendary", keywords: ["swift", "twinstrike"], text: "Swift, Twinstrike", lore: "Four hundred ways to say \"hit\".", }),
+
+  // ── Spells — second wave ────────────────────────────────────
+  C({ id: "doodle", name: "Doodle", type: "spell", cost: 1, rarity: "common", text: "Summon a 1/1 Ghost Text", lore: "A quick sketch during a slow lecture.", onPlay: [{ kind: "SUMMON", token: "ghost_text", count: 1 }] }),
+  C({ id: "second_wind", name: "Second Wind", type: "spell", cost: 2, rarity: "common", text: "Restore 4 HP to your hero", lore: "One more page in you yet.", onPlay: [{ kind: "HEAL_HERO", n: 4 }] }),
+  C({ id: "margin_call", name: "Margin Call", type: "spell", cost: 2, rarity: "rare", text: "Deal 1 damage to all enemy units; restore 2 HP to your hero", lore: "Tidy the edges. Feel better.", onPlay: [{ kind: "DEAL_DAMAGE", n: 1, target: "allEnemyUnits" }, { kind: "HEAL_HERO", n: 2 }] }),
+  C({ id: "plot_twist", name: "Plot Twist", type: "spell", cost: 3, rarity: "epic", text: "Draw 2 cards; your hero takes 1 damage", lore: "Nobody saw it coming. Especially you.", onPlay: [{ kind: "DRAW", n: 2 }, { kind: "DEAL_DAMAGE", n: 1, target: "ownHero" }] }),
+  C({ id: "fresh_page", name: "Fresh Page", type: "spell", cost: 3, rarity: "common", text: "Draw cards until you have 5 in hand", lore: "A clean start, by the sheet.", onPlay: [{ kind: "DRAW_UNTIL", handSize: 5 }] }),
+  C({ id: "ink_wash", name: "Ink Wash", type: "spell", cost: 5, rarity: "epic", text: "Deal 4 damage to all enemy units", lore: "One broad stroke, and the board is bare.", onPlay: [{ kind: "DEAL_DAMAGE", n: 4, target: "allEnemyUnits" }] }),
+  C({ id: "the_second_printing", name: "The Second Printing", type: "spell", cost: 6, rarity: "epic", text: "Summon two 3/3 Ink Golems", lore: "Popular demand, met twice.", onPlay: [{ kind: "SUMMON", token: "ink_golem", count: 2 }] }),
+
   // ── Spells ───────────────────────────────────────────────────
   C({ id: "red_pen", name: "Red Pen", type: "spell", cost: 1, rarity: "common", text: "Deal 2 damage to a unit", lore: "The margin's sharpest critique.", onPlay: [{ kind: "DEAL_DAMAGE", n: 2, target: "unit" }] }),
   C({ id: "crumpled_note", name: "Crumpled Note", type: "spell", cost: 1, rarity: "common", text: "Deal 1 damage to all enemy units", lore: "\"meet me behind the gym — NO ONE\"", onPlay: [{ kind: "DEAL_DAMAGE", n: 1, target: "allEnemyUnits" }] }),

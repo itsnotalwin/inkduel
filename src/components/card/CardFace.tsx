@@ -100,11 +100,12 @@ function RulesText({ text }: { text: string }) {
   );
 }
 
+/** Mobile-first widths: small by default, scaling up with the viewport. */
 const SIZE_WIDTH: Record<CardSize, string> = {
-  hand: "150px",
-  board: "190px",
-  collection: "168px",
-  token: "120px",
+  hand: "clamp(96px, 24vw, 150px)",
+  board: "clamp(120px, 40vw, 190px)",
+  collection: "clamp(124px, 40vw, 168px)",
+  token: "clamp(96px, 22vw, 120px)",
 };
 
 export interface CardFaceProps {

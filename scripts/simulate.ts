@@ -79,6 +79,14 @@ function run(policyA: PolicyKey, policyB: PolicyKey): RunStats {
           if (p.targets.length > 0) return false;
           const def = getCard(p.cardId);
           const aoe = def.onPlay?.some((e) => e.kind === "DEAL_DAMAGE" && e.target === "allEnemyUnits");
+          const me = before.players[before.current];
+          // skipping a pure overheal at full HP is correct play
+          const pureHeal = (def.onPlay?.length ?? 0) > 0 && def.onPlay?.every((e) => e.kind === "HEAL_HERO");
+          if (pureHeal && me.heroHp >= 30) return false;
+          // so is skipping a draw that would only burn cards
+          if (me.hand.length >= 10 && def.onPlay?.some((e) => e.kind === "DRAW")) return false;
+          const drawUntil = def.onPlay?.find((e) => e.kind === "DRAW_UNTIL");
+          if (drawUntil && drawUntil.handSize <= me.hand.length) return false;
           return !(aoe && before.players[before.current === "A" ? "B" : "A"].board.length === 0);
         });
         const enemyTargetedPlays = legal.plays.filter((p) =>

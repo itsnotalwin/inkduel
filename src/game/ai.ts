@@ -53,14 +53,29 @@ export function botDeckIds(policy: PolicyKey, seed: number): string[] {
 
 // ── Mulligan ────────────────────────────────────────────────────────────
 
+let aiSalt = 0;
+
+/** Deterministic AI randomness: derived from game state, not the wall clock. */
+function aiRng(s: GameState): () => number {
+  let a = (s.rngState ^ (s.turn * 0x9e3779b9) ^ ++aiSalt) | 0;
+  return function () {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 export function mulliganAction(s: GameState, side: "A" | "B", policy: PolicyKey): Action {
   const hand = s.players[side].hand;
+  const rand = aiRng(s);
   const keepCost = policy === "duelist" ? 3 : 4;
   const uids = hand
     .filter((c) => {
       const def = getCard(c.cardId);
       if (c.cardId === "tempo_token") return false;
-      if (policy === "gambler") return Math.random() < 0.4;
+      if (policy === "gambler") return rand() < 0.4;
       return def.cost > keepCost;
     })
     .map((c) => c.uid);
@@ -134,16 +149,17 @@ function archivistApprovesPlay(s: GameState, side: "A" | "B", cardId: string, ta
 
 export function decideAction(s: GameState, side: "A" | "B", policy: PolicyKey): Action | null {
   const legal = getLegalActions(s);
+  const rand = aiRng(s);
   if (s.phase === "MULLIGAN") return mulliganAction(s, side, policy);
   if (s.phase !== "TURN" || s.current !== side) return null;
 
-  if (policy === "gambler" && Math.random() < 0.35) {
+  if (policy === "gambler" && rand() < 0.35) {
     const plays = legal.plays;
     const attacks = legal.attacks.filter((a) => a.targets.length > 0);
     const options: Action[] = [];
-    for (const p of plays) options.push({ type: "PLAY_CARD", side, uid: p.uid, target: p.targets[Math.floor(Math.random() * p.targets.length)] });
-    for (const a of attacks) options.push({ type: "ATTACK", side, attackerUid: a.attackerUid, target: a.targets[Math.floor(Math.random() * a.targets.length)] });
-    if (options.length > 0) return options[Math.floor(Math.random() * options.length)];
+    for (const p of plays) options.push({ type: "PLAY_CARD", side, uid: p.uid, target: p.targets[Math.floor(rand() * p.targets.length)] });
+    for (const a of attacks) options.push({ type: "ATTACK", side, attackerUid: a.attackerUid, target: a.targets[Math.floor(rand() * a.targets.length)] });
+    if (options.length > 0) return options[Math.floor(rand() * options.length)];
     return { type: "END_TURN", side };
   }
 
@@ -153,7 +169,7 @@ export function decideAction(s: GameState, side: "A" | "B", policy: PolicyKey): 
     if (next === s) return; // rejected (no change)
     let score = evaluate(next, side, policy);
     // tie-breaker noise keeps games from looping identically
-    score += Math.random() * 0.15;
+    score += rand() * 0.15;
     if (!best || score > best.score) best = { action, score };
   };
 

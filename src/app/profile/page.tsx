@@ -169,9 +169,9 @@ export default function ProfilePage() {
                     <th className="px-3 py-2 text-left">Date</th>
                     <th className="px-3 py-2 text-left">Opponent</th>
                     <th className="px-3 py-2 text-left">Result</th>
-                    <th className="px-3 py-2 text-right">HP</th>
-                    <th className="px-3 py-2 text-right">Turns</th>
-                    <th className="px-3 py-2 text-right">MMR</th>
+                    <th className="hidden px-3 py-2 text-right sm:table-cell">HP</th>
+                    <th className="hidden px-3 py-2 text-right sm:table-cell">Turns</th>
+                    <th className="hidden px-3 py-2 text-right sm:table-cell">MMR</th>
                     <th className="px-3 py-2 text-right">Tape</th>
                   </tr>
                 </thead>
@@ -190,9 +190,9 @@ export default function ProfilePage() {
                       <td className="px-3 py-2" style={{ color: m.result === "WIN" ? "var(--color-ink)" : "var(--color-red-stamp)" }}>
                         {m.result}
                       </td>
-                      <td className="px-3 py-2 text-right">{m.playerHpLeft}–{m.botHpLeft}</td>
-                      <td className="px-3 py-2 text-right">{m.turns}</td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="hidden px-3 py-2 text-right sm:table-cell">{m.playerHpLeft}–{m.botHpLeft}</td>
+                      <td className="hidden px-3 py-2 text-right sm:table-cell">{m.turns}</td>
+                      <td className="hidden px-3 py-2 text-right sm:table-cell">
                         {m.playerMmrBefore} → {m.playerMmrAfter}
                       </td>
                       <td className="px-3 py-2 text-right">

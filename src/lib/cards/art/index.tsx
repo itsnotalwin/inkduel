@@ -4,6 +4,7 @@ import * as A from "./art-units-a";
 import * as B from "./art-units-b";
 import * as S from "./art-spells";
 import * as L from "./art-legendaries";
+import * as X from "./art-expansion";
 
 /**
  * Registry of per-card illustrations. Every card id in src/game/cards.ts
@@ -56,6 +57,23 @@ export const ART_REGISTRY: Record<string, ArtComponent> = {
   the_grand_palimpsest: L.TheGrandPalimpsest,
   the_archivist: L.TheArchivist,
   the_unwritten: L.TheUnwritten,
+  // second wave
+  marginalia: X.Marginalia,
+  paper_airplane: X.PaperAirplane,
+  inkwell_serpent: X.InkwellSerpent,
+  glue_stick: X.GlueStick,
+  wax_seal_warden: X.WaxSealWarden,
+  typewriter_terror: X.TypewriterTerror,
+  sticky_note: X.StickyNote,
+  laminated_legend: X.LaminatedLegend,
+  the_red_thesaurus: X.TheRedThesaurus,
+  doodle: X.Doodle,
+  second_wind: X.SecondWind,
+  margin_call: X.MarginCall,
+  plot_twist: X.PlotTwist,
+  fresh_page: X.FreshPage,
+  ink_wash: X.InkWash,
+  the_second_printing: X.TheSecondPrinting,
   // tokens
   ash_wing: S.AshWing,
   ghost_text: S.GhostText,

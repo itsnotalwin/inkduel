@@ -148,6 +148,7 @@ export function HeroPlate({
   name,
   hp,
   side,
+  label,
   active,
   highlight = false,
   dimmed = false,
@@ -158,6 +159,7 @@ export function HeroPlate({
   name: string;
   hp: number;
   side: "A" | "B";
+  label?: string;
   active?: boolean;
   highlight?: boolean;
   dimmed?: boolean;
@@ -189,9 +191,9 @@ export function HeroPlate({
         )}
       </button>
       <div className="leading-tight">
-        <div className="label-type text-[10px] text-graphite">{side === "A" ? "YOU" : "OPPONENT"}</div>
+        <div className="label-type text-[10px] text-graphite">{label ?? (side === "A" ? "YOU" : "OPPONENT")}</div>
         <div className="small-caps text-lg font-semibold">{name}</div>
-        {sub && <div className="label-type text-[9px] text-graphite">{sub}</div>}
+        {sub && <div className="label-type hidden text-[9px] text-graphite md:block">{sub}</div>}
         <div
           className="font-hand"
           style={{

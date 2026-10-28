@@ -18,16 +18,17 @@
   --font-hand: var(--font-caveat), cursive;
 }
 
-/* Hand-cut panel corners — slightly irregular, like scissors on paper. */
+/* Hand-cut panel corners — slightly irregular, like scissors on paper.
+   Mobile-first: compact units on phones, full size from 640px up. */
 :root {
   --cut-a: 12px 9px 13px 8px / 9px 12px 8px 13px;
   --cut-b: 8px 13px 9px 12px / 13px 8px 12px 9px;
-  --unit-w: 108px;
+  --unit-w: 60px;
 }
 
-@media (max-width: 640px) {
+@media (min-width: 640px) {
   :root {
-    --unit-w: 60px;
+    --unit-w: 108px;
   }
 }
 

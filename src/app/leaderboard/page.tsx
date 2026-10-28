@@ -53,7 +53,7 @@ export default function LeaderboardPage() {
                 <th className="px-3 py-2 text-left">Name</th>
                 <th className="px-3 py-2 text-left">Rank</th>
                 <th className="px-3 py-2 text-right">MMR</th>
-                <th className="px-3 py-2 text-right">W/L</th>
+                <th className="hidden px-3 py-2 text-right sm:table-cell">W/L</th>
               </tr>
             </thead>
             <tbody style={{ fontFamily: "var(--font-type)" }}>
@@ -78,7 +78,7 @@ export default function LeaderboardPage() {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right">{r.mmr}</td>
-                  <td className="px-3 py-2 text-right text-xs text-graphite">
+                  <td className="hidden px-3 py-2 text-right text-xs text-graphite sm:table-cell">
                     {r.wins}/{r.losses}
                   </td>
                 </tr>
