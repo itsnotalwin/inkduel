@@ -3,6 +3,9 @@ import { prisma } from "@/lib/db";
 import { fail, getSessionPlayer, ok, startSession } from "@/lib/session";
 import { ARCHETYPE_DECKS } from "@/game/cards";
 
+const LOGIN_BONUS = 100;
+const STARTING_COINS = 150;
+
 const bodySchema = z.object({
   name: z.string().trim().min(2).max(24).optional(),
 });
@@ -14,8 +17,29 @@ export async function POST(request: Request) {
 
   const existing = await getSessionPlayer();
   if (existing) {
+    // daily login bonus — once per calendar day
+    const today = new Date().toISOString().slice(0, 10);
+    if (existing.lastLoginDate !== today) {
+      const updated = await prisma.player.update({
+        where: { id: existing.id },
+        data: { lastLoginDate: today, coins: { increment: LOGIN_BONUS } },
+      });
+      return ok({
+        id: updated.id,
+        name: `${updated.name}${updated.tag}`,
+        mmr: updated.mmr,
+        coins: updated.coins,
+        dailyBonus: LOGIN_BONUS,
+      });
+    }
     await prisma.player.update({ where: { id: existing.id }, data: { lastSeenAt: new Date() } });
-    return ok({ id: existing.id, name: `${existing.name}${existing.tag}`, mmr: existing.mmr });
+    return ok({
+      id: existing.id,
+      name: `${existing.name}${existing.tag}`,
+      mmr: existing.mmr,
+      coins: existing.coins,
+      dailyBonus: 0,
+    });
   }
 
   const baseName = parsed.data.name ?? `Scribe-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -33,6 +57,7 @@ export async function POST(request: Request) {
     data: {
       name,
       tag,
+      coins: STARTING_COINS,
       settings: {},
       decks: {
         create: Object.values(ARCHETYPE_DECKS).map((archetype, i) => ({
@@ -44,5 +69,5 @@ export async function POST(request: Request) {
     },
   });
   await startSession(player.id);
-  return ok({ id: player.id, name: `${player.name}${player.tag}`, mmr: player.mmr });
+  return ok({ id: player.id, name: `${player.name}${player.tag}`, mmr: player.mmr, coins: player.coins, dailyBonus: 0 });
 }

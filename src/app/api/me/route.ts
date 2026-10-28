@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/db";
 import { fail, getSessionPlayer, ok } from "@/lib/session";
-import { ACHIEVEMENTS, legendaryUnlocks } from "@/lib/achievements";
+import { ACHIEVEMENTS } from "@/lib/achievements";
+import { ownedCardIds } from "@/lib/collection";
 import { COLLECTIBLE_CARDS } from "@/game/cards";
+import { CAMPAIGN_STAGES } from "@/game/campaign";
 import { rankFor } from "@/config";
 
 export async function GET() {
@@ -13,10 +15,11 @@ export async function GET() {
     include: { achievement: true },
   });
   const unlocked = new Set(achievements.map((a) => a.achievementKey));
-  const legendaries = new Set(legendaryUnlocks(unlocked));
+  const extras = ((player.extraCards as string[] | null) ?? []);
+  const owned = ownedCardIds([...unlocked], extras);
   const collection = COLLECTIBLE_CARDS.map((c) => ({
     ...c,
-    owned: c.rarity !== "legendary" || legendaries.has(c.id),
+    owned: owned.has(c.id),
   }));
 
   const matches = player.wins + player.losses + player.draws;
@@ -24,6 +27,9 @@ export async function GET() {
     id: player.id,
     name: `${player.name}${player.tag}`,
     mmr: player.mmr,
+    coins: player.coins,
+    campaignStage: player.campaignStage,
+    campaignTotal: CAMPAIGN_STAGES.length,
     rank: rankFor(player.mmr),
     wins: player.wins,
     losses: player.losses,

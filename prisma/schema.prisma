@@ -18,6 +18,10 @@ model Player {
   draws        Int      @default(0)
   streak       Int      @default(0)
   bestStreak   Int      @default(0)
+  coins        Int      @default(150)
+  campaignStage Int     @default(0)
+  lastLoginDate String?
+  extraCards   Json?
   settings     Json
   sessionToken String?  @unique
   createdAt    DateTime @default(now())

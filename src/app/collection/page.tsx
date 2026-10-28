@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ensureGuest, getMe, type MeProfile } from "@/lib/api";
 import { CardFace } from "@/components/card/CardFace";
 import { HandNote, Panel, StampButton, WashiTape } from "@/components/paper";
-import { KEYWORD_LABEL, getCard, type CardDef, type Keyword } from "@/game/cards";
+import { ARCHIVE_SET_IDS, KEYWORD_LABEL, getCard, type CardDef, type Keyword } from "@/game/cards";
 
 type TypeFilter = "all" | "unit" | "spell";
 type RarityFilter = "all" | "common" | "rare" | "epic" | "legendary";
@@ -159,6 +159,13 @@ function LockHint({ cardId }: { cardId: string }) {
     the_archivist: "Win a match in 8 turns or fewer (First Draft).",
     the_grand_palimpsest: "Reach Gold rank (Gold Standard).",
   };
+  if (ARCHIVE_SET_IDS.has(cardId)) {
+    return (
+      <HandNote className="mt-2 block text-lg">
+        unlock: tear it from a pack in the Ink Vault — or clear the campaign
+      </HandNote>
+    );
+  }
   return <HandNote className="mt-2 block text-lg">unlock: {hints[cardId] ?? "an achievement"}</HandNote>;
 }
 

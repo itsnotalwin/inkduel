@@ -17,11 +17,12 @@ import {
 } from "@/game/engine";
 import { ARCHETYPE_DECKS, getCard } from "@/game/cards";
 import { expandDeck, type DeckEntry } from "@/game/decks";
+import { campaignStage } from "@/game/campaign";
 import { decideAction, mulliganAction, pickBot, botDeckIds, type BotProfile } from "@/game/ai";
 import { eloDelta } from "@/lib/elo";
 import { sound } from "@/lib/sound";
 import { ambient } from "@/lib/ambient";
-import { ensureGuest, getDecks, postMatch, type MatchPostResult } from "@/lib/api";
+import { completeCampaignStage, ensureGuest, getDecks, postMatch, type CampaignResult, type MatchPostResult } from "@/lib/api";
 import { CardFace } from "@/components/card/CardFace";
 import { StampButton, Stamp, HandNote, WashiTape } from "@/components/paper";
 import {
@@ -103,7 +104,7 @@ export default function DuelClient() {
   const [muted, setMuted] = useState(false);
   const [awaitingPass, setAwaitingPass] = useState(false);
   const [result, setResult] = useState<
-    { result: "WIN" | "LOSS" | "DRAW"; mmrBefore: number; mmrAfter: number; server?: MatchPostResult } | null
+    { result: "WIN" | "LOSS" | "DRAW"; mmrBefore: number; mmrAfter: number; server?: MatchPostResult; campaign?: CampaignResult } | null
   >(null);
   const stateRef = useRef<GameState | null>(null);
   useEffect(() => {
@@ -145,15 +146,24 @@ export default function DuelClient() {
     }
     // make sure a guest session exists, then use the active deck from the server
     await ensureGuest();
+    const stageParam = searchParams.get("campaign");
+    const stage = stageParam !== null ? campaignStage(Number(stageParam)) : undefined;
     let deckEntries: { cardId: string; count: number }[] = localDeck();
-    const decks = await getDecks();
-    if (decks && decks.length > 0) {
-      const active = decks.find((d) => d.isActive) ?? decks[0];
-      deckEntries = active.cards;
+    if (!stage) {
+      const decks = await getDecks();
+      if (decks && decks.length > 0) {
+        const active = decks.find((d) => d.isActive) ?? decks[0];
+        deckEntries = active.cards;
+      }
     }
     const playerMmr = localMmr();
-    const chosenBot = pickBot(playerMmr);
+    const chosenBot = stage
+      ? { key: stage.policy as BotProfile["key"], name: stage.name, elo: 900 + stage.index * 50, blurb: stage.blurb }
+      : pickBot(playerMmr);
     const matchSeed = Math.floor(Math.random() * 2 ** 31);
+    const botDeck = stage
+      ? stage.deck.map(([cardId, count]) => ({ cardId, count }))
+      : botDeckIds(chosenBot.key, matchSeed);
     statsRef.current = {
       maxTurnDamage: 0,
       maxTurnKills: 0,
@@ -170,9 +180,9 @@ export default function DuelClient() {
     setResult(null);
     setTimer(TURN_SECONDS);
     setState(
-      createGame(matchSeed, expandDeck(deckEntries as DeckEntry[]), botDeckIds(chosenBot.key, matchSeed), "A", localName(), chosenBot.name),
+      createGame(matchSeed, expandDeck(deckEntries as DeckEntry[]), expandDeck(botDeck as DeckEntry[]), "A", localName(), chosenBot.name),
     );
-  }, [hotseat]);
+  }, [hotseat, searchParams]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration of the mute preference
@@ -303,7 +313,8 @@ export default function DuelClient() {
   }, []);
 
   // record match result once — server recomputes Elo; local fallback offline.
-  // Hot-seat duels are friendly: no posting, no MMR.
+  // Hot-seat duels are friendly: no posting, no MMR. Campaign duels report to
+  // the campaign ledger instead of the ranked ladder.
   useEffect(() => {
     if (!state || state.phase !== "GAME_OVER" || result) return;
     if (hotseat) {
@@ -312,6 +323,18 @@ export default function DuelClient() {
       setResult({ result: r, mmrBefore: 0, mmrAfter: 0 });
       if (r !== "DRAW") sound.victoryDing();
       else sound.defeatNote();
+      return;
+    }
+    const stageParam = searchParams.get("campaign");
+    const campaignIdx = stageParam !== null ? Number(stageParam) : null;
+    if (campaignIdx !== null) {
+      const r = state.winner === "A" ? "WIN" : state.winner === "B" ? "LOSS" : "DRAW";
+      void (async () => {
+        const res = await completeCampaignStage(campaignIdx, r);
+        if (res) setResult({ result: r, mmrBefore: 0, mmrAfter: 0, campaign: res });
+        if (r === "WIN") sound.victoryDing();
+        else sound.defeatNote();
+      })();
       return;
     }
     if (!bot) return;
@@ -347,6 +370,7 @@ export default function DuelClient() {
       if (r === "WIN") sound.victoryDing();
       else if (r === "LOSS") sound.defeatNote();
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-arms only on a finished game; searchParams changes restart the match instead
   }, [state, bot, result, hotseat]);
 
   // ── AI loop (solo only) ───────────────────────────────────────────────
@@ -890,6 +914,26 @@ export default function DuelClient() {
                   {state.winner === "draw" ? "Both heroes fall together" : `${state.players[state.winner === "A" ? "A" : "B"].name} takes the duel`}
                 </div>
                 <HandNote className="mt-1 text-2xl">a friendly duel — the record book stays blank</HandNote>
+              </div>
+            ) : result.campaign ? (
+              <div className="flex flex-col items-center gap-2 text-center">
+                <div className="label-type text-lg" style={{ color: "var(--color-red-stamp)" }}>
+                  +{result.campaign.coinsAwarded} INK
+                </div>
+                {result.campaign.rewardCard && (
+                  <div className="flex flex-col items-center gap-1">
+                    <HandNote className="text-2xl">stage loot!</HandNote>
+                    <Stamp tone="ink" className="text-sm">
+                      UNLOCKS: {getCard(result.campaign.rewardCard).name}
+                    </Stamp>
+                  </div>
+                )}
+                {result.campaign.replay && <HandNote className="text-xl">a replayed stage — a modest purse</HandNote>}
+                <div className="mt-3">
+                  <Link href="/campaign" className="label-type text-xs underline">
+                    back to the campaign map →
+                  </Link>
+                </div>
               </div>
             ) : (
               <>

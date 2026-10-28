@@ -2,8 +2,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { fail, getSessionPlayer, ok } from "@/lib/session";
 import { validateDeck, type DeckEntry } from "@/game/decks";
-import { legendaryUnlocks } from "@/lib/achievements";
-import { COLLECTIBLE_CARDS } from "@/game/cards";
+import { ownedCardIds } from "@/lib/collection";
 
 const deckSchema = z.object({
   name: z.string().trim().min(1).max(40),
@@ -13,10 +12,8 @@ const deckSchema = z.object({
 
 async function ownedSet(playerId: string): Promise<Set<string>> {
   const unlocked = await prisma.playerAchievement.findMany({ where: { playerId } });
-  const legendaries = new Set(legendaryUnlocks(unlocked.map((u) => u.achievementKey)));
-  return new Set(
-    COLLECTIBLE_CARDS.filter((c) => c.rarity !== "legendary" || legendaries.has(c.id)).map((c) => c.id),
-  );
+  const player = await prisma.player.findUnique({ where: { id: playerId } });
+  return ownedCardIds(unlocked.map((u) => u.achievementKey), (player?.extraCards as string[] | null) ?? []);
 }
 
 export async function GET() {

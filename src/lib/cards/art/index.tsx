@@ -5,6 +5,8 @@ import * as B from "./art-units-b";
 import * as S from "./art-spells";
 import * as L from "./art-legendaries";
 import * as X from "./art-expansion";
+import * as W3U from "./art-wave3-units";
+import * as W3S from "./art-wave3-spells";
 
 /**
  * Registry of per-card illustrations. Every card id in src/game/cards.ts
@@ -74,6 +76,48 @@ export const ART_REGISTRY: Record<string, ArtComponent> = {
   fresh_page: X.FreshPage,
   ink_wash: X.InkWash,
   the_second_printing: X.TheSecondPrinting,
+  // wave 3 — The Archive Set
+  doodled_knight: W3U.DoodledKnight,
+  smudge_sprite: W3U.SmudgeSprite,
+  correction_tape: W3U.CorrectionTape,
+  carbon_copy: W3U.CarbonCopy,
+  clipboard_clerk: W3U.ClipboardClerk,
+  muse_of_margins: W3U.MuseOfMargins,
+  binder_golem: W3U.BinderGolem,
+  razor_fold: W3U.RazorFold,
+  sticker_swarm: W3U.StickerSwarm,
+  fountain_pen_duelist: W3U.FountainPenDuelist,
+  stamp_collector: W3U.StampCollector,
+  thumbtack_titan: W3U.ThumbtackTitan,
+  origami_owl: W3U.OrigamiOwl,
+  blot_monster: W3U.BlotMonster,
+  glue_gun_gunner: W3U.GlueGunGunner,
+  paper_dolls: W3U.PaperDolls,
+  rubber_stamp_rebel: W3U.RubberStampRebel,
+  accordion_file: W3U.AccordionFile,
+  mimeograph_mage: W3U.MimeographMage,
+  ruler_regent: W3U.RulerRegent,
+  scotch_guard: W3U.ScotchGuard,
+  the_eraser_of_ends: W3U.TheEraserOfEnds,
+  the_overflowing_inkwell: W3U.TheOverflowingInkwell,
+  the_collected_works: W3U.TheCollectedWorks,
+  ink_drop: W3S.InkDrop,
+  sticky_situation: W3S.StickySituation,
+  brainstorm: W3S.Brainstorm,
+  paper_trail: W3S.PaperTrail,
+  erase_and_redraw: W3S.EraseAndRedraw,
+  wax_seal: W3S.WaxSeal,
+  paper_shredder: W3S.PaperShredder,
+  red_letter_day: W3S.RedLetterDay,
+  fools_cap: W3S.FoolsCap,
+  wide_margin_victory: W3S.WideMarginVictory,
+  reinforced_margins: W3S.ReinforcedMargins,
+  signing_bonus: W3S.SigningBonus,
+  the_long_letter: W3S.TheLongLetter,
+  red_ink_flood: W3S.RedInkFlood,
+  final_notice: W3S.FinalNotice,
+  the_second_edition: W3S.TheSecondEdition,
+  scribble: W3S.Scribble,
   // tokens
   ash_wing: S.AshWing,
   ghost_text: S.GhostText,

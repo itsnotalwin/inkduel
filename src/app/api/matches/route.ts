@@ -58,6 +58,8 @@ export async function POST(request: Request) {
   const result =
     m.result === "WIN" ? { wins: { increment: 1 } } : m.result === "LOSS" ? { losses: { increment: 1 } } : { draws: { increment: 1 } };
   const streak = m.result === "WIN" ? player.streak + 1 : m.result === "LOSS" ? 0 : player.streak;
+  // ink economy: every duel pays out
+  const coinsAwarded = m.result === "WIN" ? 50 : m.result === "DRAW" ? 25 : 15;
 
   const updated = await prisma.player.update({
     where: { id: player.id },
@@ -66,6 +68,7 @@ export async function POST(request: Request) {
       mmr: newMmr,
       streak,
       bestStreak: Math.max(player.bestStreak, streak),
+      coins: { increment: coinsAwarded },
     },
   });
 
@@ -158,6 +161,8 @@ export async function POST(request: Request) {
   return ok({
     mmrBefore: player.mmr,
     mmrAfter: newMmr,
+    coinsAwarded,
+    coinsAfter: updated.coins,
     mmrDelta: delta,
     rankBefore: rankFor(player.mmr).name,
     rankAfter: rankFor(newMmr).name,

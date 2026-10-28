@@ -11,11 +11,16 @@
  */
 
 import { ACHIEVEMENTS, legendaryUnlocks } from "@/lib/achievements";
+import { ownedCardIds } from "@/lib/collection";
 import { eloDelta, type MatchResult } from "@/lib/elo";
 import { questForDate, todayKey, QUEST_TEMPLATES } from "@/lib/quests";
 import { ARCHETYPE_DECKS, COLLECTIBLE_CARDS } from "@/game/cards";
 import { randomDeck } from "@/game/decks";
+import { CAMPAIGN_STAGES } from "@/game/campaign";
+import { PACK_COST, rollPack } from "@/game/packs";
 import { STARTING_MMR } from "@/config";
+
+
 
 export const CLOUD = process.env.NEXT_PUBLIC_CLOUD !== "0";
 
@@ -64,6 +69,7 @@ function uuid(): string {
 interface LocalProfile {
   name: string;
   mmr: number;
+  coins: number;
   wins: number;
   losses: number;
   draws: number;
@@ -82,7 +88,7 @@ function localProfile(): LocalProfile {
     typeof window !== "undefined"
       ? window.localStorage.getItem("inkduel:name") ?? `Scribe-${Math.floor(1000 + Math.random() * 9000)}`
       : "Scribe";
-  const fresh: LocalProfile = { name, mmr: STARTING_MMR, wins: 0, losses: 0, draws: 0, streak: 0, bestStreak: 0 };
+  const fresh: LocalProfile = { name, mmr: STARTING_MMR, coins: 150, wins: 0, losses: 0, draws: 0, streak: 0, bestStreak: 0 };
   write(PROFILE_KEY, fresh);
   return fresh;
 }
@@ -93,6 +99,9 @@ export interface MeProfile {
   id: string;
   name: string;
   mmr: number;
+  coins: number;
+  campaignStage: number;
+  campaignTotal: number;
   rank: { key: string; name: string; min: number };
   wins: number;
   losses: number;
@@ -208,11 +217,150 @@ export interface MatchPostResult {
   mmrBefore: number;
   mmrAfter: number;
   mmrDelta: number;
+  coinsAwarded: number;
+  coinsAfter: number;
   rankBefore: string;
   rankAfter: string;
   newAchievements: { key: string; name: string; description: string; unlocksCard: string | null }[];
   unlockedCards: string[];
   opponentMmr: number;
+}
+
+// ── packs (gacha) ───────────────────────────────────────────────────────
+
+export interface PackCard {
+  cardId: string;
+  isNew: boolean;
+  refund: number;
+}
+
+export interface PackResult {
+  cards: PackCard[];
+  newCards: string[];
+  totalRefund: number;
+  cost: number;
+  coinsBefore: number;
+  coinsAfter: number;
+}
+
+export function openPacks(packs = 1): Promise<PackResult | null> {
+  if (!CLOUD) {
+    const profile = localProfile();
+    const cost = packs * PACK_COST;
+    if (profile.coins < cost) return Promise.resolve(null);
+    const held = localAchievementKeys(localMatches(), profile, localDecks().filter((d) => d.isCustom).length);
+    const owned = ownedCardIds([...held], read<string[]>("inkduel:extraCards", []));
+    const cards: PackCard[] = [];
+    const newCards: string[] = [];
+    let totalRefund = 0;
+    const extras = new Set(read<string[]>("inkduel:extraCards", []));
+    for (let i = 0; i < packs; i++) {
+      const result = rollPack(owned, Math.random);
+      for (const card of result.cards) {
+        cards.push(card);
+        if (card.isNew) {
+          newCards.push(card.cardId);
+          owned.add(card.cardId);
+          extras.add(card.cardId);
+        }
+        totalRefund += card.refund;
+      }
+    }
+    const updated: LocalProfile = { ...profile, coins: profile.coins - cost + totalRefund };
+    write(PROFILE_KEY, updated);
+    write("inkduel:extraCards", [...extras]);
+    return Promise.resolve({
+      cards,
+      newCards,
+      totalRefund,
+      cost,
+      coinsBefore: profile.coins,
+      coinsAfter: updated.coins,
+    });
+  }
+  return request<PackResult>("/api/packs", { method: "POST", body: JSON.stringify({ packs }) });
+}
+
+// ── campaign ────────────────────────────────────────────────────────────
+
+export interface CampaignStageDto {
+  index: number;
+  name: string;
+  blurb: string;
+  rewardCoins: number;
+  rewardCard: string | null;
+  cleared: boolean;
+  unlocked: boolean;
+}
+
+export interface CampaignState {
+  progress: number;
+  stages: CampaignStageDto[];
+}
+
+export interface CampaignResult {
+  cleared: boolean;
+  replay?: boolean;
+  coinsAwarded: number;
+  coinsAfter: number;
+  progress: number;
+  rewardCard: string | null;
+}
+
+export function getCampaign(): Promise<CampaignState | null> {
+  if (!CLOUD) {
+    const progress = read<number>("inkduel:campaignStage", 0);
+    return Promise.resolve({
+      progress,
+      stages: CAMPAIGN_STAGES.map((s) => ({
+        index: s.index,
+        name: s.name,
+        blurb: s.blurb,
+        rewardCoins: s.rewardCoins,
+        rewardCard: s.rewardCard ?? null,
+        cleared: s.index < progress,
+        unlocked: s.index <= progress,
+      })),
+    });
+  }
+  return request<CampaignState>("/api/campaign");
+}
+
+export function completeCampaignStage(stage: number, result: MatchResult): Promise<CampaignResult | null> {
+  if (!CLOUD) {
+    const progress = read<number>("inkduel:campaignStage", 0);
+    const profile = localProfile();
+    if (result !== "WIN") {
+      return Promise.resolve({ cleared: false, coinsAwarded: 0, coinsAfter: profile.coins, progress, rewardCard: null });
+    }
+    const stageDef = CAMPAIGN_STAGES[stage];
+    if (stage < progress) {
+      const updated: LocalProfile = { ...profile, coins: profile.coins + 10 };
+      write(PROFILE_KEY, updated);
+      return Promise.resolve({ cleared: false, replay: true, coinsAwarded: 10, coinsAfter: updated.coins, progress, rewardCard: null });
+    }
+    if (stage !== progress) return Promise.resolve(null);
+    const extras = new Set(read<string[]>("inkduel:extraCards", []));
+    if (stageDef.rewardCard) extras.add(stageDef.rewardCard);
+    const updated: LocalProfile = {
+      ...profile,
+      coins: profile.coins + stageDef.rewardCoins,
+    };
+    write(PROFILE_KEY, updated);
+    write("inkduel:extraCards", [...extras]);
+    write("inkduel:campaignStage", stage + 1);
+    return Promise.resolve({
+      cleared: true,
+      coinsAwarded: stageDef.rewardCoins,
+      coinsAfter: updated.coins,
+      progress: stage + 1,
+      rewardCard: stageDef.rewardCard ?? null,
+    });
+  }
+  return request<CampaignResult>("/api/campaign", {
+    method: "POST",
+    body: JSON.stringify({ stage, result }),
+  });
 }
 
 // ── paper-edition helpers ───────────────────────────────────────────────
@@ -279,12 +427,16 @@ function localMe(): MeProfile {
   const decks = localDecks();
   const customDeckCount = decks.filter((d) => d.isCustom).length;
   const held = localAchievementKeys(matches, profile, customDeckCount);
-  const legendaries = legendaryUnlocks(held);
   const total = matches.length;
+  const extras = read<string[]>("inkduel:extraCards", []);
+  const owned = ownedCardIds([...held], extras);
   return {
     id: "local",
     name: profile.name,
     mmr: profile.mmr,
+    coins: profile.coins,
+    campaignStage: read<number>("inkduel:campaignStage", 0),
+    campaignTotal: CAMPAIGN_STAGES.length,
     rank: { key: "local", name: rankNameFor(profile.mmr), min: 0 },
     wins: profile.wins,
     losses: profile.losses,
@@ -309,7 +461,7 @@ function localMe(): MeProfile {
       attack: c.attack,
       health: c.health,
       rarity: c.rarity,
-      owned: c.rarity !== "legendary" || legendaries.includes(c.id),
+      owned: owned.has(c.id),
     })),
   };
 }
@@ -342,12 +494,23 @@ export function ensureGuest(name?: string) {
       p.name = name;
       write(PROFILE_KEY, p);
     }
-    return Promise.resolve({ id: "local", name: p.name, mmr: p.mmr });
+    return Promise.resolve({ id: "local", name: p.name, mmr: p.mmr, coins: p.coins, dailyBonus: localDailyBonus() });
   }
-  return request<{ id: string; name: string; mmr: number }>("/api/auth/guest", {
+  return request<{ id: string; name: string; mmr: number; coins: number; dailyBonus: number }>("/api/auth/guest", {
     method: "POST",
     body: JSON.stringify({ name }),
   });
+}
+
+function localDailyBonus(): number {
+  const today = new Date().toISOString().slice(0, 10);
+  const last = read<string | null>("inkduel:lastLoginDate", null);
+  if (last === today) return 0;
+  write("inkduel:lastLoginDate", today);
+  const p = localProfile();
+  p.coins += 100;
+  write(PROFILE_KEY, p);
+  return 100;
 }
 
 export function getMe(): Promise<MeProfile | null> {
@@ -553,9 +716,11 @@ function postMatchLocal(payload: Parameters<typeof postMatch>[0]): Promise<Match
   const botMmr = BOT_MMRS[payload.opponentKey] ?? 1000;
   const { delta, newMmr } = eloDelta(profile.mmr, botMmr, payload.result);
   const streak = payload.result === "WIN" ? profile.streak + 1 : payload.result === "LOSS" ? 0 : profile.streak;
+  const coinsAwarded = payload.result === "WIN" ? 50 : payload.result === "DRAW" ? 25 : 15;
   const updated: LocalProfile = {
     ...profile,
     mmr: newMmr,
+    coins: profile.coins + coinsAwarded,
     streak,
     bestStreak: Math.max(profile.bestStreak, streak),
     wins: profile.wins + (payload.result === "WIN" ? 1 : 0),
@@ -621,6 +786,8 @@ function postMatchLocal(payload: Parameters<typeof postMatch>[0]): Promise<Match
     mmrBefore: profile.mmr,
     mmrAfter: newMmr,
     mmrDelta: delta,
+    coinsAwarded,
+    coinsAfter: updated.coins,
     rankBefore: rankNameFor(profile.mmr),
     rankAfter: rankNameFor(newMmr),
     newAchievements: unlocked.map((a) => ({ key: a.key, name: a.name, description: a.description, unlocksCard: a.unlocksCard ?? null })),

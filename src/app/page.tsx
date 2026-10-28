@@ -23,6 +23,8 @@ const RANK_KEY_BY_NAME: Record<string, RankKey> = {
 };
 
 const NAV = [
+  { href: "/campaign", label: "Campaign" },
+  { href: "/packs", label: "Packs" },
   { href: "/collection", label: "Collection" },
   { href: "/decks", label: "Decks" },
   { href: "/leaderboard", label: "Leaderboard" },

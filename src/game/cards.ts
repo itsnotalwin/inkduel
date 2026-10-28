@@ -96,6 +96,50 @@ export const CARDS: CardDef[] = [
   C({ id: "ink_wash", name: "Ink Wash", type: "spell", cost: 5, rarity: "epic", text: "Deal 4 damage to all enemy units", lore: "One broad stroke, and the board is bare.", onPlay: [{ kind: "DEAL_DAMAGE", n: 4, target: "allEnemyUnits" }] }),
   C({ id: "the_second_printing", name: "The Second Printing", type: "spell", cost: 6, rarity: "epic", text: "Summon two 3/3 Ink Golems", lore: "Popular demand, met twice.", onPlay: [{ kind: "SUMMON", token: "ink_golem", count: 2 }] }),
 
+  // ── Wave 3: "The Archive Set" — units ───────────────────────
+  C({ id: "doodled_knight", name: "Doodled Knight", type: "unit", cost: 1, attack: 2, health: 1, rarity: "common", text: "", lore: "Recruited from the margins of a math test." }),
+  C({ id: "smudge_sprite", name: "Smudge Sprite", type: "unit", cost: 1, attack: 1, health: 1, rarity: "common", keywords: ["swift"], text: "Swift", lore: "Left behind by a careless thumb." }),
+  C({ id: "correction_tape", name: "Correction Tape", type: "unit", cost: 2, attack: 0, health: 5, rarity: "common", keywords: ["guard"], text: "Guard", lore: "Errors, covered. Conversation, over." }),
+  C({ id: "carbon_copy", name: "Carbon Copy", type: "unit", cost: 2, attack: 2, health: 2, rarity: "rare", text: "On play: draw 1 card", lore: "For your records. All three of them.", onPlay: [{ kind: "DRAW", n: 1 }] }),
+  C({ id: "clipboard_clerk", name: "Clipboard Clerk", type: "unit", cost: 2, attack: 1, health: 3, rarity: "common", keywords: ["insight"], text: "Insight", lore: "Holds the checklist of your doom." }),
+  C({ id: "muse_of_margins", name: "Muse of Margins", type: "unit", cost: 3, attack: 2, health: 2, rarity: "rare", text: "On play: draw 1 card", lore: "She whispers from the edges.", onPlay: [{ kind: "DRAW", n: 1 }] }),
+  C({ id: "binder_golem", name: "Binder Golem", type: "unit", cost: 3, attack: 0, health: 6, rarity: "common", keywords: ["guard"], text: "Guard", lore: "It holds everything together." }),
+  C({ id: "razor_fold", name: "Razor Fold", type: "unit", cost: 3, attack: 4, health: 1, rarity: "common", keywords: ["swift"], text: "Swift", lore: "Fold along the dotted line. Carefully." }),
+  C({ id: "sticker_swarm", name: "Sticker Swarm", type: "unit", cost: 4, attack: 3, health: 3, rarity: "rare", text: "Echo: summon three 1/1 Scribbles", lore: "Peel one, find five more.", echo: [{ kind: "SUMMON", token: "scribble", count: 3 }] }),
+  C({ id: "fountain_pen_duelist", name: "Fountain Pen Duelist", type: "unit", cost: 4, attack: 4, health: 3, rarity: "rare", text: "On play: deal 2 damage to a unit", lore: "En garde, then en garde again.", onPlay: [{ kind: "DEAL_DAMAGE", n: 2, target: "unit" }] }),
+  C({ id: "stamp_collector", name: "Stamp Collector", type: "unit", cost: 4, attack: 2, health: 5, rarity: "common", text: "", lore: "First editions only. No licking." }),
+  C({ id: "thumbtack_titan", name: "Thumbtack Titan", type: "unit", cost: 5, attack: 4, health: 6, rarity: "common", keywords: ["guard"], text: "Guard", lore: "Pinned. Proud. Permanent." }),
+  C({ id: "origami_owl", name: "Origami Owl", type: "unit", cost: 5, attack: 3, health: 4, rarity: "rare", text: "On play: draw cards until you have 7 in hand", lore: "Wise. Nocturnal. Folded.", onPlay: [{ kind: "DRAW_UNTIL", handSize: 7 }] }),
+  C({ id: "blot_monster", name: "Blot Monster", type: "unit", cost: 5, attack: 5, health: 6, rarity: "epic", text: "", lore: "It grew in a bottle nobody cleaned." }),
+  C({ id: "glue_gun_gunner", name: "Glue Gun Gunner", type: "unit", cost: 5, attack: 4, health: 5, rarity: "rare", text: "On play: give all friendly units +0/+1", lore: "Sticky rounds for everyone.", onPlay: [{ kind: "BUFF", hp: 1, target: "allFriendly" }] }),
+  C({ id: "paper_dolls", name: "Paper Dolls", type: "unit", cost: 3, attack: 1, health: 1, rarity: "epic", text: "On play: summon two 1/1 Scribbles", lore: "They fold under pressure. Then multiply.", onPlay: [{ kind: "SUMMON", token: "scribble", count: 2 }] }),
+  C({ id: "rubber_stamp_rebel", name: "Rubber Stamp Rebel", type: "unit", cost: 6, attack: 5, health: 5, rarity: "rare", text: "On play: deal 3 damage to the enemy hero", lore: "REJECTED, and proud of it.", onPlay: [{ kind: "DEAL_DAMAGE", n: 3, target: "enemyHero" }] }),
+  C({ id: "accordion_file", name: "Accordion File", type: "unit", cost: 6, attack: 3, health: 7, rarity: "rare", keywords: ["guard"], text: "Guard. Echo: draw 2 cards", lore: "It expands to meet your needs.", echo: [{ kind: "DRAW", n: 2 }] }),
+  C({ id: "mimeograph_mage", name: "Mimeograph Mage", type: "unit", cost: 6, attack: 4, health: 6, rarity: "epic", text: "On play: draw 3 cards", lore: "Copies of copies of copies.", onPlay: [{ kind: "DRAW", n: 3 }] }),
+  C({ id: "ruler_regent", name: "Ruler Regent", type: "unit", cost: 7, attack: 6, health: 6, rarity: "rare", keywords: ["guard"], text: "Guard", lore: "Measure twice. Rule once." }),
+  C({ id: "scotch_guard", name: "Scotch Guard", type: "unit", cost: 7, attack: 5, health: 8, rarity: "epic", keywords: ["guard"], text: "Guard. Echo: restore 4 HP to your hero", lore: "The office's last defense.", echo: [{ kind: "HEAL_HERO", n: 4 }] }),
+  C({ id: "the_eraser_of_ends", name: "The Eraser of Ends", type: "unit", cost: 8, attack: 8, health: 8, rarity: "legendary", text: "On play: destroy a unit", lore: "What was written can be unwritten.", onPlay: [{ kind: "DESTROY", target: "unit" }] }),
+  C({ id: "the_overflowing_inkwell", name: "The Overflowing Inkwell", type: "unit", cost: 9, attack: 6, health: 9, rarity: "legendary", text: "On play: summon a 3/3 Ink Golem; draw 3 cards", lore: "One drop became everything.", onPlay: [{ kind: "SUMMON", token: "ink_golem", count: 1 }, { kind: "DRAW", n: 3 }] }),
+  C({ id: "the_collected_works", name: "The Collected Works", type: "unit", cost: 10, attack: 9, health: 9, rarity: "legendary", keywords: ["guard"], text: "Guard. Echo: draw 3 cards", lore: "Every story ends on a shelf.", echo: [{ kind: "DRAW", n: 3 }] }),
+
+  // ── Wave 3: "The Archive Set" — spells ──────────────────────
+  C({ id: "ink_drop", name: "Ink Drop", type: "spell", cost: 1, rarity: "common", text: "Deal 1 damage to any target", lore: "Small. Permanent.", onPlay: [{ kind: "DEAL_DAMAGE", n: 1, target: "any" }] }),
+  C({ id: "sticky_situation", name: "Sticky Situation", type: "spell", cost: 1, rarity: "common", text: "Give a friendly unit +0/+3", lore: "You're not going anywhere.", onPlay: [{ kind: "BUFF", hp: 3, target: "chosenFriendly" }] }),
+  C({ id: "brainstorm", name: "Brainstorm", type: "spell", cost: 2, rarity: "common", text: "Draw 1 card; gain 1 mana this turn only", lore: "A storm of half-ideas.", onPlay: [{ kind: "DRAW", n: 1 }, { kind: "GAIN_MANA", n: 1, temporary: true }] }),
+  C({ id: "paper_trail", name: "Paper Trail", type: "spell", cost: 2, rarity: "rare", text: "Deal 2 damage to all enemy units", lore: "Follow it to the source.", onPlay: [{ kind: "DEAL_DAMAGE", n: 2, target: "allEnemyUnits" }] }),
+  C({ id: "erase_and_redraw", name: "Erase and Redraw", type: "spell", cost: 3, rarity: "rare", text: "Destroy a friendly unit; draw 3 cards", lore: "Back to the drawing board.", onPlay: [{ kind: "DESTROY", target: "unit" }, { kind: "DRAW", n: 3 }] }),
+  C({ id: "wax_seal", name: "Wax Seal", type: "spell", cost: 3, rarity: "rare", text: "Give a friendly unit +2/+1 and Twinstrike", lore: "Twice signed, twice striking.", onPlay: [{ kind: "BUFF", atk: 2, hp: 1, target: "chosenFriendly", grantKeyword: "twinstrike" }] }),
+  C({ id: "paper_shredder", name: "Paper Shredder", type: "spell", cost: 4, rarity: "epic", text: "Deal 5 damage to a unit", lore: "Confetti is also a form of art.", onPlay: [{ kind: "DEAL_DAMAGE", n: 5, target: "unit" }] }),
+  C({ id: "red_letter_day", name: "Red Letter Day", type: "spell", cost: 4, rarity: "rare", text: "Deal 3 damage to the enemy hero; draw 1 card", lore: "Marked in red for a reason.", onPlay: [{ kind: "DEAL_DAMAGE", n: 3, target: "enemyHero" }, { kind: "DRAW", n: 1 }] }),
+  C({ id: "fools_cap", name: "Fool's Cap", type: "spell", cost: 4, rarity: "rare", text: "Gain 2 mana this turn only; draw 1 card", lore: "Wear it. Pivot to genius.", onPlay: [{ kind: "GAIN_MANA", n: 2, temporary: true }, { kind: "DRAW", n: 1 }] }),
+  C({ id: "wide_margin_victory", name: "Wide Margin Victory", type: "spell", cost: 6, rarity: "rare", text: "Deal 3 damage to all enemy units; deal 2 damage to the enemy hero", lore: "Victory, with room to spare.", onPlay: [{ kind: "DEAL_DAMAGE", n: 3, target: "allEnemyUnits" }, { kind: "DEAL_DAMAGE", n: 2, target: "enemyHero" }] }),
+  C({ id: "reinforced_margins", name: "Reinforced Margins", type: "spell", cost: 5, rarity: "epic", text: "Give all friendly units +0/+3", lore: "Nothing gets through the edges.", onPlay: [{ kind: "BUFF", hp: 3, target: "allFriendly" }] }),
+  C({ id: "signing_bonus", name: "Signing Bonus", type: "spell", cost: 5, rarity: "rare", text: "Restore 6 HP to your hero; gain 2 mana this turn only", lore: "Ink yours here.", onPlay: [{ kind: "HEAL_HERO", n: 6 }, { kind: "GAIN_MANA", n: 2, temporary: true }] }),
+  C({ id: "the_long_letter", name: "The Long Letter", type: "spell", cost: 6, rarity: "epic", text: "Draw 4 cards; your hero takes 2 damage", lore: "Dear reader, it costs to read.", onPlay: [{ kind: "DRAW", n: 4 }, { kind: "DEAL_DAMAGE", n: 2, target: "ownHero" }] }),
+  C({ id: "red_ink_flood", name: "Red Ink Flood", type: "spell", cost: 7, rarity: "epic", text: "Deal 5 damage to all enemy units", lore: "The editor's floods come in red.", onPlay: [{ kind: "DEAL_DAMAGE", n: 5, target: "allEnemyUnits" }] }),
+  C({ id: "final_notice", name: "Final Notice", type: "spell", cost: 8, rarity: "rare", text: "Deal 8 damage to the enemy hero", lore: "This is the last envelope.", onPlay: [{ kind: "DEAL_DAMAGE", n: 8, target: "enemyHero" }] }),
+  C({ id: "the_second_edition", name: "The Second Edition", type: "spell", cost: 9, rarity: "legendary", text: "Deal 5 damage to all enemy units; draw 3 cards; summon a 3/3 Ink Golem", lore: "Revised, expanded, devastating.", onPlay: [{ kind: "DEAL_DAMAGE", n: 5, target: "allEnemyUnits" }, { kind: "DRAW", n: 3 }, { kind: "SUMMON", token: "ink_golem", count: 1 }] }),
+
   // ── Spells ───────────────────────────────────────────────────
   C({ id: "red_pen", name: "Red Pen", type: "spell", cost: 1, rarity: "common", text: "Deal 2 damage to a unit", lore: "The margin's sharpest critique.", onPlay: [{ kind: "DEAL_DAMAGE", n: 2, target: "unit" }] }),
   C({ id: "crumpled_note", name: "Crumpled Note", type: "spell", cost: 1, rarity: "common", text: "Deal 1 damage to all enemy units", lore: "\"meet me behind the gym — NO ONE\"", onPlay: [{ kind: "DEAL_DAMAGE", n: 1, target: "allEnemyUnits" }] }),
@@ -118,6 +162,7 @@ export const CARDS: CardDef[] = [
   C({ id: "ghost_text", name: "Ghost Text", type: "unit", cost: 1, attack: 1, health: 1, rarity: "common", token: true, text: "", lore: "A sentence the page almost kept." }),
   C({ id: "ink_golem", name: "Ink Golem", type: "unit", cost: 3, attack: 3, health: 3, rarity: "common", token: true, text: "", lore: "Poured, not drawn." }),
   C({ id: "tempo_token", name: "Tempo Token", type: "spell", cost: 0, rarity: "common", token: true, text: "Gain 1 mana this turn only.", lore: "A little head start, handed over in person.", onPlay: [{ kind: "GAIN_MANA", n: 1, temporary: true }] }),
+  C({ id: "scribble", name: "Scribble", type: "unit", cost: 1, attack: 1, health: 1, rarity: "common", token: true, text: "", lore: "A quick mark with big energy." }),
 ];
 
 export const CARD_BY_ID: ReadonlyMap<string, CardDef> = new Map(
@@ -132,6 +177,19 @@ export function getCard(id: string): CardDef {
 
 export const COLLECTIBLE_CARDS = CARDS.filter((c) => !c.token);
 export const LEGENDARY_IDS = COLLECTIBLE_CARDS.filter((c) => c.rarity === "legendary").map((c) => c.id);
+
+/** Wave 3 ids ("The Archive Set") — not owned by default; pulled from packs / campaign. */
+export const ARCHIVE_SET_IDS = new Set([
+  "doodled_knight", "smudge_sprite", "correction_tape", "carbon_copy", "clipboard_clerk",
+  "muse_of_margins", "binder_golem", "razor_fold", "sticker_swarm", "fountain_pen_duelist",
+  "stamp_collector", "thumbtack_titan", "origami_owl", "blot_monster", "glue_gun_gunner",
+  "paper_dolls", "rubber_stamp_rebel", "accordion_file", "mimeograph_mage", "ruler_regent",
+  "scotch_guard", "the_eraser_of_ends", "the_overflowing_inkwell", "the_collected_works",
+  "ink_drop", "sticky_situation", "brainstorm", "paper_trail", "erase_and_redraw",
+  "wax_seal", "paper_shredder", "red_letter_day", "fools_cap", "wide_margin_victory",
+  "reinforced_margins", "signing_bonus", "the_long_letter", "red_ink_flood",
+  "final_notice", "the_second_edition",
+]);
 
 /** Keywords that grant the ability purely by being on the card. */
 export const KEYWORD_LABEL: Record<Keyword, string> = {
