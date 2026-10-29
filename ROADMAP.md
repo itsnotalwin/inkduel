@@ -119,12 +119,11 @@ features. Work top-down; each item is small and lands immediately.
 
 ## 6. Phase 3 — Play with humans (2–4 months, biggest lift)
 
-- [ ] **Real multiplayer** — two honest options, decide by then:
-      *WebRTC peer relay* (no server cost, works on paper edition with a
-      signaling quirk) or *full-stack relay* (authoritative, matches the
-      existing session model). The engine is already action-based and
-      deterministic — a WebRTC data channel replaying actions is the shortest
-      path.
+- [ ] **Real multiplayer** — design locked, see **`MULTIPLAYER.md`**: v0 is
+      deterministic lockstep over HTTP polling (no new infrastructure, open
+      deck lists), v1 migrates Prisma to Supabase Postgres and swaps the
+      poll loop for Realtime push, and ranked play moves to
+      server-authoritative redacted views for hand privacy.
 - [ ] **Friend challenges** — challenge links with a seeded duel; both players
       play the same seed vs the same AI and compare results (asynchronous
       "shadow duel") — a cheap stepping stone to live play.

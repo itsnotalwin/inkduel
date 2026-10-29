@@ -111,5 +111,6 @@ node scripts/api-smoke.mjs     # end-to-end API smoke test
   `prefers-reduced-motion`.
 
 See `DEVIATIONS.md` for spec judgment calls, `EFFECTS.md` for the per-effect
-verification checklist, and `ROADMAP.md` for what comes next — the testing
-plan, balance pass, and future features (multiplayer, seasons, crafting).
+verification checklist, `ROADMAP.md` for the testing plan and future phases,
+and `MULTIPLAYER.md` for the real-opponents design (lockstep protocol,
+Supabase path, hand-privacy tiers).
