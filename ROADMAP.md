@@ -84,6 +84,12 @@ features. Work top-down; each item is small and lands immediately.
 - **localStorage ceiling** — replays + matches cap at 100 entries locally;
   long-term players on the paper edition will silently lose old tapes. Decide:
   raise the cap, compress, or accept.
+- **CONFIRMED: Duelist vs Archivist is lopsided (0/50)** — found by the
+  harness after the hero-target fix (paper_cut-to-face now works). The
+  Duelist empties its hand by turn 6–7 then fatigues, while the Archivist's
+  The Archivist refills to 8. Spec decks are verbatim, so the fix lands in
+  **balance patch 1.1** (§4): likely levers are the Archivist's evaluate
+  weights or a Duelist reach card. AI-vs-AI only — humans play differently.
 
 ---
 
@@ -91,6 +97,9 @@ features. Work top-down; each item is small and lands immediately.
 
 - [ ] **Balance patch 1.1** — using playtest + telemetry: adjust 3–5 cards,
       document every change in a `CHANGELOG.md` with before/after stats.
+      **First target confirmed by harness:** Duelist 0/50 vs Archivist
+      (fatigue-loss pattern) — candidate levers: Archivist AI weights
+      (w.face/w.heroHp) or a Duelist reach/draw adjustment.
 - [ ] **Bot decks embrace the Archive Set** — the Duelist/Collector/Archivist
       scripted decks predate waves 2–3; build one new archetype per bot
       (e.g. Archivist runs Scribble swarm + Accordion File value).

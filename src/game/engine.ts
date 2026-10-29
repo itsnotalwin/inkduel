@@ -274,14 +274,15 @@ function summonToken(s: GameState, side: Side, cardId: string): void {
 }
 
 /** Execute an ordered effect list. `destroyedCount` feeds SUMMON "perDestroyed". */
-function runEffects(s: GameState, side: Side, effects: Effect[], targetUid: string | undefined, destroyedCount: number): void {
+function runEffects(s: GameState, side: Side, effects: Effect[], target: Target | undefined, destroyedCount: number): void {
+  const targetUid = target && "uid" in target ? target.uid : undefined;
+  const heroTarget: Side | undefined = target && "hero" in target ? target.hero : undefined;
   for (const e of effects) {
     switch (e.kind) {
       case "DEAL_DAMAGE": {
         s.events.push({ type: "EFFECT", kind: "DEAL_DAMAGE", side });
         switch (e.target) {
           case "unit":
-          case "any":
           case "enemyUnits": {
             if (targetUid) {
               const found = findUnit(s, targetUid);
@@ -289,6 +290,20 @@ function runEffects(s: GameState, side: Side, effects: Effect[], targetUid: stri
                 dealToUnit(s, found.u, found.side, e.n);
                 creditDamage(s, side, e.n);
               }
+            }
+            break;
+          }
+          case "any": {
+            // "any" reaches units AND heroes — a hero target resolves here
+            if (targetUid) {
+              const found = findUnit(s, targetUid);
+              if (found) {
+                dealToUnit(s, found.u, found.side, e.n);
+                creditDamage(s, side, e.n);
+              }
+            } else if (heroTarget) {
+              dealToHero(s, heroTarget, e.n);
+              creditDamage(s, side, e.n);
             }
             break;
           }
@@ -523,7 +538,7 @@ function playCard(s: GameState, side: Side, handUid: string, target: Target | un
         const rest = def.onPlay.filter((e) => e !== wipe);
         runEffects(s, side, rest, undefined, destroyedCount);
       } else {
-        runEffects(s, side, def.onPlay, targetUid, 0);
+        runEffects(s, side, def.onPlay, target, 0);
       }
     }
   } else {
@@ -533,7 +548,7 @@ function playCard(s: GameState, side: Side, handUid: string, target: Target | un
     s.events.push({ type: "SPELL", side, cardId: def.id });
     s.log.push({ turn: s.sideTurns[side], side, text: `${p.name} casts ${def.name}.` });
     if (def.onPlay) {
-      runEffects(s, side, def.onPlay, targetUid, 0);
+      runEffects(s, side, def.onPlay, target, 0);
     }
   }
   processDeaths(s);
