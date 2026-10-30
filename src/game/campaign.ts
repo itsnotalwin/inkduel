@@ -64,7 +64,7 @@ export const CAMPAIGN_STAGES: CampaignStage[] = [
     rewardCard: "glue_gun_gunner",
     deck: [
       ["sticky_situation", 2], ["glue_stick", 2], ["glue_gun_gunner", 2], ["sticky_note", 2],
-      ["blotting_wall", 2], ["foreword", 1], ["doodle", 2], ["second_wind", 2],
+      ["sketch_sentinel", 2], ["foreword", 1], ["doodle", 2], ["second_wind", 2],
       ["page_knight", 2], ["stationery_titan", 2], ["fresh_page", 1],
     ],
   },
@@ -87,9 +87,9 @@ export const CAMPAIGN_STAGES: CampaignStage[] = [
     policy: "archivist",
     rewardCoins: 100,
     deck: [
-      ["inkwell_serpent", 2], ["page_knight", 2], ["blotting_wall", 2], ["binder_golem", 2],
-      ["correction_tape", 2], ["lamination", 2], ["the_living_manuscript", 1],
-      ["eraser_golem", 2], ["sticky_note", 2], ["fresh_page", 1], ["second_wind", 2],
+      ["inkwell_serpent", 2], ["archivists_aide", 2], ["eraser_golem", 2], ["muse_of_margins", 2],
+      ["sticky_note", 1], ["correction_tape", 1], ["blotting_wall", 1], ["fresh_page", 2],
+      ["second_wind", 2], ["brainstorm", 2], ["ink_drop", 2], ["marginalia", 1],
     ],
   },
   {
