@@ -24,7 +24,7 @@ import { sound } from "@/lib/sound";
 import { ambient } from "@/lib/ambient";
 import { completeCampaignStage, ensureGuest, getDecks, postMatch, type CampaignResult, type MatchPostResult } from "@/lib/api";
 import { LegendaryFlourish, type FlourishState } from "./LegendaryFlourish";
-import { dismissTutorialTip, readTutorialFlags, TutorialTip, type TutorialFlags } from "@/components/onboarding/Tutorial";
+import { bumpDuelCount, dismissTutorialTip, readDuelCount, readTutorialFlags, TutorialTip, type TutorialFlags } from "@/components/onboarding/Tutorial";
 import { CardFace } from "@/components/card/CardFace";
 import { StampButton, Stamp, HandNote, WashiTape } from "@/components/paper";
 import {
@@ -108,6 +108,7 @@ export default function DuelClient() {
   const [awaitingPass, setAwaitingPass] = useState(false);
   const [tutorial, setTutorial] = useState<TutorialFlags>(() => ({
     tipWelcome: false, tipMana: false, tipPlay: false, tipAttack: false, tipWin: false, tipTempo: false,
+    tipGuardMath: false, tipFatigue: false, tipTempoAdvanced: false,
   }));
   const [result, setResult] = useState<
     { result: "WIN" | "LOSS" | "DRAW"; mmrBefore: number; mmrAfter: number; server?: MatchPostResult; campaign?: CampaignResult } | null
@@ -353,6 +354,7 @@ export default function DuelClient() {
     }
     if (!bot) return;
     const r = state.winner === "A" ? "WIN" : state.winner === "B" ? "LOSS" : "DRAW";
+    bumpDuelCount(); // gates the deep-dive tips after three ranked duels
     const st = statsRef.current;
     st.maxTurnDamage = Math.max(st.maxTurnDamage, st.turnDamage);
     st.maxTurnKills = Math.max(st.maxTurnKills, st.turnKills);
@@ -469,6 +471,14 @@ export default function DuelClient() {
     if (tutorial.tipAttack && hasPlayed && !hasAttacked) return "tipAttack";
     if (tutorial.tipWin && hasAttacked) return "tipWin";
     if (tutorial.tipTempo && state.turn >= 3) return "tipTempo";
+    // deep dives: only once the player has three ranked duels behind them
+    const veteran = readDuelCount() >= 3;
+    if (!veteran) return null;
+    if (tutorial.tipGuardMath && state.players.B.board.some((u) => u.keywords.includes("guard")) && state.turn >= 2) {
+      return "tipGuardMath";
+    }
+    if (tutorial.tipFatigue && state.players.A.deck.length <= 8) return "tipFatigue";
+    if (tutorial.tipTempoAdvanced && state.turn >= 5) return "tipTempoAdvanced";
     return null;
   }, [state, hotseat, tutorial, isPlayerTurn, hasPlayed, hasAttacked]);
 

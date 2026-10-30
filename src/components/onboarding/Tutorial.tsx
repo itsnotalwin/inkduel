@@ -16,21 +16,33 @@ export interface TutorialFlags {
   tipAttack: boolean;
   tipWin: boolean;
   tipTempo: boolean;
+  // deep dives — surface only once the player has a few duels under their belt
+  tipGuardMath: boolean;
+  tipFatigue: boolean;
+  tipTempoAdvanced: boolean;
 }
 
 const KEY = "inkduel:tutorial";
 
+const DEFAULTS: TutorialFlags = {
+  tipWelcome: true, tipMana: true, tipPlay: true, tipAttack: true, tipWin: true, tipTempo: true,
+  tipGuardMath: true, tipFatigue: true, tipTempoAdvanced: true,
+};
+
+/** The original first-duel chain — what "tutorial complete" means. */
+const BASIC_TIPS: (keyof TutorialFlags)[] = ["tipWelcome", "tipMana", "tipPlay", "tipAttack", "tipWin", "tipTempo"];
+
+const ALL_TIPS = Object.keys(DEFAULTS) as (keyof TutorialFlags)[];
+
 export function readTutorialFlags(): TutorialFlags {
-  if (typeof window === "undefined") {
-    return { tipWelcome: true, tipMana: true, tipPlay: true, tipAttack: true, tipWin: true, tipTempo: true };
-  }
+  if (typeof window === "undefined") return { ...DEFAULTS };
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw) as TutorialFlags;
+    if (raw) return { ...DEFAULTS, ...(JSON.parse(raw) as Partial<TutorialFlags>) };
   } catch {
     // fall through to defaults
   }
-  return { tipWelcome: true, tipMana: true, tipPlay: true, tipAttack: true, tipWin: true, tipTempo: true };
+  return { ...DEFAULTS };
 }
 
 export function dismissTutorialTip(tip: keyof TutorialFlags) {
@@ -40,28 +52,35 @@ export function dismissTutorialTip(tip: keyof TutorialFlags) {
 }
 
 export function resetTutorialFlags() {
-  window.localStorage.setItem(
-    KEY,
-    JSON.stringify({ tipWelcome: true, tipMana: true, tipPlay: true, tipAttack: true, tipWin: true, tipTempo: true }),
-  );
+  window.localStorage.setItem(KEY, JSON.stringify(DEFAULTS));
   window.localStorage.removeItem("inkduel:seenPrologue");
 }
 
 export function tutorialComplete(): boolean {
   if (typeof window === "undefined") return true;
   try {
-    const raw = window.localStorage.getItem(KEY);
-    if (!raw) return false;
-    const flags = JSON.parse(raw) as TutorialFlags;
-    return !Object.values(flags).some(Boolean);
+    const flags = readTutorialFlags();
+    return !BASIC_TIPS.some((tip) => flags[tip]);
   } catch {
     return true;
   }
 }
 
+/** Duels completed (ranked solo), used to gate the deep-dive tips. */
+export function readDuelCount(): number {
+  if (typeof window === "undefined") return 0;
+  return Number(window.localStorage.getItem("inkduel:duelCount") ?? 0);
+}
+
+export function bumpDuelCount() {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem("inkduel:duelCount", String(readDuelCount() + 1));
+}
+
 interface TipDefinition {
   title: string;
   body: string;
+  label?: string;
 }
 
 const TIPS: Record<keyof TutorialFlags, TipDefinition> = {
@@ -89,6 +108,21 @@ const TIPS: Record<keyof TutorialFlags, TipDefinition> = {
     title: "The Tempo Token",
     body: "Whoever plays second holds the Tempo Token — a free card that grants 1 mana for one turn. Spend it early.",
   },
+  tipGuardMath: {
+    title: "Deep dive: guard math",
+    label: "DEEP DIVE",
+    body: "A Guard soaks one attacker per point of health it survives. Before attacking, add it up: can your units kill the guard and still reach the hero? Sometimes a small spell clears the wall better than three suicides.",
+  },
+  tipFatigue: {
+    title: "Deep dive: fatigue planning",
+    label: "DEEP DIVE",
+    body: "When your deck runs dry, every new card you draw deals you damage — the game becomes a countdown. Draw cards like Blank Page buy real turns, so spend them before you're empty, and don't run an aggro deck to turn 15 on purpose.",
+  },
+  tipTempoAdvanced: {
+    title: "Deep dive: the Tempo Token, advanced",
+    label: "DEEP DIVE",
+    body: "The token is a burst-turn enabler, not just early mana. Hold it until you can chain two plays in one turn — token + temporary mana (Brainstorm, Fools Cap) turns a 4-mana turn into a 6-mana combo turn.",
+  },
 };
 
 export function TutorialTip({
@@ -113,19 +147,14 @@ export function TutorialTip({
         >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="label-type text-[10px] text-graphite">FIRST DUEL — TIP</div>
+              <div className="label-type text-[10px] text-graphite">{TIPS[tip].label ?? "FIRST DUEL — TIP"}</div>
               <h3 className="small-caps mt-0.5 text-xl font-bold leading-tight">{TIPS[tip].title}</h3>
             </div>
             <button
               type="button"
               className="stamp-btn label-type px-2 py-1 text-[9px]"
               onClick={() => {
-                dismissTutorialTip("tipWelcome");
-                dismissTutorialTip("tipMana");
-                dismissTutorialTip("tipPlay");
-                dismissTutorialTip("tipAttack");
-                dismissTutorialTip("tipWin");
-                dismissTutorialTip("tipTempo");
+                for (const t of ALL_TIPS) dismissTutorialTip(t);
                 onDismiss("tipWelcome");
               }}
             >
