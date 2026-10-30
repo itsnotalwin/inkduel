@@ -4,7 +4,7 @@
  * the UI paces the loop (~700ms) so plays read clearly.
  */
 import { applyAction, createGame, getLegalActions, type Action, type GameState, type Target } from "./engine";
-import { ARCHETYPE_DECKS, BOT_ARCHETYPE_DECKS, getCard } from "./cards";
+import { BOT_ARCHETYPE_DECKS, getCard } from "./cards";
 import { randomDeck, expandDeck, type DeckEntry } from "./decks";
 
 export type PolicyKey = "duelist" | "gambler" | "collector" | "archivist";

@@ -10,6 +10,9 @@ import { getCard, COLLECTIBLE_CARDS } from "@/game/cards";
 import { validateDeck, type DeckEntry } from "@/game/decks";
 import { DECK_SIZE } from "@/config";
 
+/** Desired mana-curve shape by cost bucket (0…7+), used by Auto-fill. */
+const TARGET_CURVE = [5, 7, 4, 2, 1, 0.7, 0.3, 0.3];
+
 export default function DecksPage() {
   const [decks, setDecks] = useState<DeckDto[] | null>(null);
   const [me, setMe] = useState<MeProfile | null>(null);
@@ -18,6 +21,7 @@ export default function DecksPage() {
   const [draftName, setDraftName] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   const reload = useCallback(async () => {
     await ensureGuest();
@@ -64,6 +68,63 @@ export default function DecksPage() {
   };
 
   const errors = useMemo(() => validateDeck(draft, ownedIds), [draft, ownedIds]);
+
+  const visibleCards = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return COLLECTIBLE_CARDS;
+    const cost = Number(q);
+    return COLLECTIBLE_CARDS.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.text ?? "").toLowerCase().includes(q) ||
+        (Number.isFinite(cost) && String(cost) === q && c.cost === cost),
+    );
+  }, [query]);
+
+  /**
+   * Fill empty slots toward a healthy mana curve: repeatedly add the card
+   * whose cost bucket is furthest behind its target share. Deterministic —
+   * same deck, same fill.
+   */
+  const autoFill = () => {
+    if (!editingId) return;
+    setSaveError(null);
+    setDraft((prev) => {
+      const next = prev.map((e) => ({ ...e }));
+      const total = () => next.reduce((n, e) => n + e.count, 0);
+      const bucketOf = (cost: number) => Math.min(cost, 7);
+      const limitOf = (rarity: string) => (rarity === "legendary" ? 1 : 2);
+      const copiesIn = (id: string) => next.find((e) => e.cardId === id)?.count ?? 0;
+      const targetScale = DECK_SIZE / TARGET_CURVE.reduce((a, b) => a + b, 0);
+      let guard = 0;
+      while (total() < DECK_SIZE && guard++ < 300) {
+        const counts = Array.from({ length: 8 }, () => 0);
+        for (const e of next) counts[bucketOf(getCard(e.cardId).cost)] += e.count;
+        let bucket = 0;
+        let deficit = -Infinity;
+        for (let i = 0; i < 8; i++) {
+          const d = TARGET_CURVE[i] * targetScale - counts[i];
+          if (d > deficit) {
+            deficit = d;
+            bucket = i;
+          }
+        }
+        const inBucket = COLLECTIBLE_CARDS.filter(
+          (c) => ownedIds.has(c.id) && bucketOf(c.cost) === bucket && copiesIn(c.id) < limitOf(c.rarity),
+        );
+        const anyUsable = COLLECTIBLE_CARDS.filter(
+          (c) => ownedIds.has(c.id) && copiesIn(c.id) < limitOf(c.rarity),
+        );
+        const pool = inBucket.length > 0 ? inBucket : anyUsable;
+        if (pool.length === 0) break;
+        const pick = pool[0];
+        const entry = next.find((e) => e.cardId === pick.id);
+        if (entry) entry.count += 1;
+        else next.push({ cardId: pick.id, count: 1 });
+      }
+      return next;
+    });
+  };
 
   const save = async (activate = false) => {
     if (!editingId) return;
@@ -170,6 +231,9 @@ export default function DecksPage() {
               {deckCount(draft)}/{DECK_SIZE}
             </span>
             <div className="ml-auto flex gap-2">
+              <StampButton size="sm" onClick={autoFill} disabled={deckCount(draft) >= DECK_SIZE} title="Fill the remaining slots toward a healthy mana curve">
+                Auto-fill
+              </StampButton>
               <StampButton size="sm" onClick={() => setEditingId(null)}>
                 Cancel
               </StampButton>
@@ -193,6 +257,11 @@ export default function DecksPage() {
             </div>
           )}
           {saveError && <HandNote className="mt-3 inline-block text-xl">✎ {saveError}</HandNote>}
+
+          {/* live curve while building — hover a bar for the card names */}
+          <div className="mt-5 max-w-md">
+            <DeckCurve cards={draft} />
+          </div>
 
           {/* deck strip: 20 slots */}
           <div className="mt-5 flex flex-wrap gap-2" onDragOver={(e) => e.preventDefault()}>
@@ -241,9 +310,22 @@ export default function DecksPage() {
 
           {/* collection panel */}
           <div className="mt-6">
-            <div className="label-type mb-2 text-xs text-graphite">COLLECTION — DRAG OR CLICK TO ADD</div>
+            <div className="label-type mb-2 flex flex-wrap items-center gap-3 text-xs text-graphite">
+              <span>COLLECTION — DRAG OR CLICK TO ADD</span>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="search name, text, or cost…"
+                aria-label="Search cards"
+                className="ink-frame-thin min-w-48 flex-1 px-2 py-1 text-sm"
+                style={{ fontFamily: "var(--font-hand)", background: "var(--color-cardstock)" }}
+              />
+              <span className="label-type text-[10px]">
+                {visibleCards.length} / {COLLECTIBLE_CARDS.length}
+              </span>
+            </div>
             <div className="flex max-h-80 flex-wrap gap-2 overflow-y-auto p-2" style={{ background: "var(--color-paper)", borderRadius: 8 }}>
-              {COLLECTIBLE_CARDS.map((c) => {
+              {visibleCards.map((c) => {
                 const inDeck = draft.find((e) => e.cardId === c.id)?.count ?? 0;
                 const limit = c.rarity === "legendary" ? 1 : 2;
                 const locked = !ownedIds.has(c.id);
@@ -278,23 +360,29 @@ export default function DecksPage() {
   );
 }
 
-/** Live hand-drawn mana-curve bar chart. */
+/** Live hand-drawn mana-curve bar chart; hovering a bar names its cards. */
 function DeckCurve({ cards }: { cards: DeckEntry[] }) {
-  const curve = useMemo(() => {
+  const { curve, names } = useMemo(() => {
     const counts = Array.from({ length: 8 }, () => 0);
+    const byBucket: string[][] = Array.from({ length: 8 }, () => []);
     for (const e of cards) {
       const def = getCard(e.cardId);
       const bucket = Math.min(def.cost, 7);
       counts[bucket] += e.count;
+      byBucket[bucket].push(e.count > 1 ? `${def.name} ×${e.count}` : def.name);
     }
-    return counts;
+    return { curve: counts, names: byBucket };
   }, [cards]);
   const max = Math.max(1, ...curve);
   const label = (i: number) => (i === 7 ? "7+" : String(i));
   return (
     <div className="flex h-24 items-end gap-1.5" aria-label="Mana curve">
       {curve.map((n, i) => (
-        <div key={i} className="flex flex-1 flex-col items-center gap-1">
+        <div
+          key={i}
+          className="flex flex-1 flex-col items-center gap-1"
+          title={n > 0 ? `${label(i)}-cost: ${names[i].join(", ")}` : `${label(i)}-cost: none`}
+        >
           <div
             className="w-full"
             style={{
