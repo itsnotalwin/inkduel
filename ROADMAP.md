@@ -124,8 +124,10 @@ features. Work top-down; each item is small and lands immediately.
       Engine". Matrix flipped from Archivist-dominant (94–100%) to a
       rock-paper-scissors spread; Collector went from punching bag (14%) to
       54–58% vs everyone. Stats in `CHANGELOG.md`.
-- [ ] **Deck builder QoL** — card search inside the builder, auto-fill
-      remaining slots with the curve, mana-curve hover shows card names.
+- [x] **Deck builder QoL** — shipped: card search (name / rules text / cost,
+      with a filtered-count readout), a deterministic curve-aware Auto-fill
+      button, and mana-curve bars that name their cards on hover (live in the
+      builder and on every deck panel). Verified in-browser.
 - [x] **Campaign act 2** — shipped: stages 13–20 ("the Sealed Wing") with
       wave-3 staples as enemy cards (Fools Cap, Wax Seal, Reinforced Margins,
       Scotch Guard, Ruler Regent, The Second Edition). Reward cards at the
@@ -133,8 +135,10 @@ features. Work top-down; each item is small and lands immediately.
       Mage) and the final clear grants the pull-only legendary **The Second
       Edition**. Smoke-verified: every stage winnable (final boss 23%),
       difficulty escalates (early 76% vs late 69%).
-- [ ] **Onboarding follow-up** — after 3 duels, surface one-time deep-dive
-      tips (Tempo Token advanced uses, Guard math, fatigue planning).
+- [x] **Onboarding follow-up** — shipped: three one-time deep-dive tips
+      (guard math, fatigue planning, Tempo Token combos) that arm after the
+      player's third ranked duel and fire contextually — a guard on the enemy
+      board, deck under 9 cards, turn 5+.
 
 ## 5. Phase 2 — Depth (1–2 months)
 
