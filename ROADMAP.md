@@ -60,11 +60,22 @@ features. Work top-down; each item is small and lands immediately.
       6 (Inkwell Serpents) as guard-walls the proxy could not beat — both
       decks retuned; final gate: early 69% vs late 50% proxy win rate, 0
       illegal actions across all 360 games.
-- [ ] **API contract tests** — hit every route with Zod-invalid payloads and
-      assert the `{ok:false}` envelope + status codes (extend
-      `scripts/api-smoke.mjs` into a CI-runnable form).
-- [ ] **Coins ledger invariant** — after any sequence of match/pack/campaign
-      posts, `coins = Σ(rewards) − Σ(costs) + startingCoins`. Add a fuzz test.
+- [x] **API contract tests** — hit every route with unauthenticated and
+      Zod-invalid payloads and assert the `{ok:false}` envelope + status
+      codes. ✅ Shipped as `tests/api-contract.test.ts` (25 tests): handlers
+      run directly against a throwaway SQLite database (`INKDUEL_DB` env +
+      `prisma.test.config.ts`), no server needed — CI-runnable via vitest.
+      Covered: 401 gating on every mutating+private route, 400s on invalid
+      payloads, 402 unaffordable packs, 409 campaign skip-ahead, 422 illegal
+      or unowned decks, 404 foreign decks, catalog seeding, pack cost/refund
+      math. Hardened `/api/packs` while at it: malformed or non-conforming
+      bodies now reject instead of silently opening a pack.
+- [x] **Coins ledger invariant** — after any sequence of match/pack/campaign
+      posts, `coins = Σ(rewards) − Σ(costs) + startingCoins`. ✅ Shipped as
+      the ink ledger fuzz in `tests/api-contract.test.ts`: 48 seeded-random
+      ops (matches, pack bursts incl. 402-when-broke, daily logins, campaign
+      first-clears then replay tokens) with the running balance cross-checked
+      against every response `coinsAfter` and `/api/me` reads.
 
 ### 3.2 Playtest protocol (humans)
 - [ ] **Scripted first-session test** — new device, no localStorage: prologue →

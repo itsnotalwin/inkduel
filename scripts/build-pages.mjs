@@ -13,11 +13,23 @@ const apiDir = "src/app/api";
 const stashDir = ".api-stash";
 const hadApi = existsSync(apiDir);
 
+// the contract test imports the route handlers — stash it with them or its
+// imports dangle while the api directory is away
+const contractTest = "tests/api-contract.test.ts";
+const testStashDir = ".test-stash";
+const hadTest = existsSync(contractTest);
+
 if (hadApi) {
   rmSync(stashDir, { recursive: true, force: true });
   cpSync(apiDir, stashDir, { recursive: true });
   rmSync(apiDir, { recursive: true, force: true });
   console.log("api routes stashed");
+}
+if (hadTest) {
+  rmSync(testStashDir, { recursive: true, force: true });
+  cpSync(contractTest, join(testStashDir, "api-contract.test.ts"));
+  rmSync(contractTest, { force: true });
+  console.log("api contract test stashed");
 }
 
 let code = 1;
@@ -39,6 +51,12 @@ try {
     cpSync(stashDir, apiDir, { recursive: true });
     rmSync(stashDir, { recursive: true, force: true });
     console.log("api routes restored");
+  }
+  if (hadTest) {
+    rmSync(contractTest, { force: true });
+    cpSync(join(testStashDir, "api-contract.test.ts"), contractTest);
+    rmSync(testStashDir, { recursive: true, force: true });
+    console.log("api contract test restored");
   }
 }
 

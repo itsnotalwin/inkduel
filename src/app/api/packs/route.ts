@@ -13,9 +13,14 @@ export async function POST(request: Request) {
   const player = await getSessionPlayer();
   if (!player) return fail("Not signed in", 401);
 
+  // a purchase endpoint must never guess: malformed or non-conforming
+  // bodies are rejected instead of silently opening a pack
   const body = await request.json().catch(() => null);
-  const parsed = z.object({ packs: z.number().int().min(1).max(10).optional() }).safeParse(body ?? {});
-  const packs = parsed.success ? parsed.data.packs ?? 1 : 1;
+  const parsed = z
+    .object({ packs: z.number().int().min(1).max(10).optional() })
+    .safeParse(body);
+  if (!parsed.success) return fail("Invalid packs payload.");
+  const packs = parsed.data.packs ?? 1;
   const cost = packs * PACK_COST;
   if (player.coins < cost) return fail(`Not enough ink — a pack costs ${PACK_COST}.`, 402);
 
