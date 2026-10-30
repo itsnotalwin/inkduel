@@ -13,6 +13,16 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 // route handlers read the session via next/headers — swap in a cookie jar
 const jar = vi.hoisted(() => new Map<string, string>());
 
+// db.ts reads INKDUEL_DB at import time — set it BEFORE any route module
+// loads. Hoisted + local to this file so sibling test files can never
+// interfere (a global setupFiles hook re-ran per file and raced).
+const TMP_DB = vi.hoisted(() => {
+  const tmp = (process.env.TEMP ?? process.env.TMP ?? "/tmp").replace(/\\/g, "/");
+  const file = `${tmp}/inkduel-vitest-${process.pid}-${Date.now()}-${Math.floor(Math.random() * 1e6)}.db`;
+  process.env.INKDUEL_DB = file;
+  return file;
+});
+
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: (name: string) => (jar.has(name) ? { name, value: jar.get(name) } : undefined),
@@ -114,8 +124,6 @@ async function expectOk(
   expect(j.ok).toBe(true);
   return j.data!;
 }
-
-const TMP_DB = process.env.INKDUEL_DB!;
 
 beforeAll(async () => {
   // prisma.config.ts hardcodes the real database, so the CLI gets a test
@@ -386,6 +394,8 @@ describe("profile readouts", () => {
 });
 
 describe("ink ledger fuzz", () => {
+  // 48 ops × several DB round-trips each — needs more than the 5s default on
+  // slow filesystems when the suite runs in parallel
   it("keeps the ledger exact across a random session", async () => {
     const mainToken = jar.get(SESSION_COOKIE)!;
     jar.clear();
@@ -440,5 +450,5 @@ describe("ink ledger fuzz", () => {
     const final = await expectOk(meGet());
     expect(final.coins).toBe(expected);
     jar.set(SESSION_COOKIE, mainToken);
-  });
+  }, 60_000);
 });

@@ -9,9 +9,13 @@ import { HandNote, Panel, StampButton, WashiTape } from "@/components/paper";
 import { getCard, COLLECTIBLE_CARDS } from "@/game/cards";
 import { validateDeck, type DeckEntry } from "@/game/decks";
 import { DECK_SIZE } from "@/config";
+import { encodeDeckCode } from "@/lib/deck-code";
 
 /** Desired mana-curve shape by cost bucket (0…7+), used by Auto-fill. */
 const TARGET_CURVE = [5, 7, 4, 2, 1, 0.7, 0.3, 0.3];
+
+/** Pages deploys live under /inkduel — copied links must carry the basePath. */
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export default function DecksPage() {
   const [decks, setDecks] = useState<DeckDto[] | null>(null);
@@ -22,6 +26,14 @@ export default function DecksPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const shareDeck = (deck: DeckDto) => {
+    const url = `${window.location.origin}${BASE_PATH}/decks/share?d=${encodeDeckCode(deck.cards)}`;
+    void navigator.clipboard?.writeText(url).catch(() => {});
+    setCopiedId(deck.id);
+    window.setTimeout(() => setCopiedId((cur) => (cur === deck.id ? null : cur)), 2500);
+  };
 
   const reload = useCallback(async () => {
     await ensureGuest();
@@ -198,6 +210,9 @@ export default function DecksPage() {
                     Set Active
                   </StampButton>
                 )}
+                <StampButton size="sm" onClick={() => shareDeck(d)} title="Copy a share link for this deck">
+                  {copiedId === d.id ? "Copied!" : "Share"}
+                </StampButton>
                 <StampButton size="sm" onClick={() => remove(d.id)}>
                   Delete
                 </StampButton>
