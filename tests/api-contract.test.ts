@@ -52,7 +52,7 @@ import { mulberry32 } from "@/game/decks";
 import { getCard, CARDS, ARCHIVE_SET_IDS } from "@/game/cards";
 import { ACHIEVEMENTS } from "@/lib/achievements";
 import { CAMPAIGN_STAGES } from "@/game/campaign";
-import { PACK_COST, PACK_SIZE } from "@/game/packs";
+import { PACK_COST, PACK_PREMIUM_COST, PACK_SIZE } from "@/game/packs";
 
 const BASE = "http://localhost:3000";
 const REPLAY_REWARD = 10;
@@ -223,6 +223,7 @@ describe("packs", () => {
     await expectFail(packsPost(post("/api/packs", { packs: 0 })), 400);
     await expectFail(packsPost(post("/api/packs", { packs: 11 })), 400);
     await expectFail(packsPost(post("/api/packs", { packs: "2" })), 400);
+    await expectFail(packsPost(post("/api/packs", { packs: 1, type: "banana" })), 400);
     await expectFail(
       packsPost(
         new Request(BASE + "/api/packs", {
@@ -237,6 +238,23 @@ describe("packs", () => {
 
   it("refuse unaffordable purchases without spending ink", async () => {
     await expectFail(packsPost(post("/api/packs", { packs: 10 })), 402);
+    await expectFail(packsPost(post("/api/packs", { packs: 10, type: "collected" })), 402);
+  });
+
+  it("price and floor the Collected Works pack", async () => {
+    const before = await expectOk(packsGet());
+    const coinsBefore = before.coins as number;
+    if (coinsBefore < PACK_PREMIUM_COST) {
+      await expectFail(packsPost(post("/api/packs", { packs: 1, type: "collected" })), 402);
+      return;
+    }
+    const d = await expectOk(packsPost(post("/api/packs", { packs: 1, type: "collected" })));
+    expect(d.cost).toBe(PACK_PREMIUM_COST);
+    expect(d.packType).toBe("collected");
+    const hasEpicPlus = (d.cards as { cardId: string }[]).some((c) =>
+      ["epic", "legendary"].includes(getCard(c.cardId).rarity),
+    );
+    expect(hasEpicPlus).toBe(true);
   });
 
   it("open a pack at the listed cost and refund duplicates", async () => {

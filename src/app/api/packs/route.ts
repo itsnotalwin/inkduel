@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { fail, getSessionPlayer, ok } from "@/lib/session";
 import { ownedCardIds } from "@/lib/collection";
-import { PACK_COST, rollPack, slipsFromDuplicates, addSlips, ZERO_SLIPS, type Slips } from "@/game/packs";
+import { PACK_COST, PACK_PREMIUM_COST, rollPack, slipsFromDuplicates, addSlips, ZERO_SLIPS, type PackType, type Slips } from "@/game/packs";
 
 /**
  * Open a card pack for ink. Server-side roll (authoritative). New cards are
@@ -17,12 +17,17 @@ export async function POST(request: Request) {
   // bodies are rejected instead of silently opening a pack
   const body = await request.json().catch(() => null);
   const parsed = z
-    .object({ packs: z.number().int().min(1).max(10).optional() })
+    .object({
+      packs: z.number().int().min(1).max(10).optional(),
+      type: z.enum(["standard", "collected"]).optional(),
+    })
     .safeParse(body);
   if (!parsed.success) return fail("Invalid packs payload.");
   const packs = parsed.data.packs ?? 1;
-  const cost = packs * PACK_COST;
-  if (player.coins < cost) return fail(`Not enough ink — a pack costs ${PACK_COST}.`, 402);
+  const type: PackType = parsed.data.type ?? "standard";
+  const unitCost = type === "collected" ? PACK_PREMIUM_COST : PACK_COST;
+  const cost = packs * unitCost;
+  if (player.coins < cost) return fail(`Not enough ink — this pack costs ${unitCost}.`, 402);
 
   // everything the player owns: wave-1 commons/rares/epics + achievement
   // legendaries + previously pulled cards (wave-3 cards are pull-only)
@@ -35,7 +40,7 @@ export async function POST(request: Request) {
   let totalRefund = 0;
 
   for (let i = 0; i < packs; i++) {
-    const result = rollPack(owned, () => randomInt(1_000_000) / 1_000_000);
+    const result = rollPack(owned, () => randomInt(1_000_000) / 1_000_000, type === "collected" ? "epic" : "rare");
     for (const card of result.cards) {
       if (card.isNew && !newCards.includes(card.cardId)) {
         newCards.push(card.cardId);
@@ -65,6 +70,7 @@ export async function POST(request: Request) {
     cost,
     coinsBefore: player.coins,
     coinsAfter,
+    packType: type,
     slipsEarned: earned,
     slips: slipsAfter,
     opened: new Date().toISOString(),
@@ -74,5 +80,5 @@ export async function POST(request: Request) {
 export async function GET() {
   const player = await getSessionPlayer();
   if (!player) return fail("Not signed in", 401);
-  return ok({ coins: player.coins, cost: PACK_COST });
+  return ok({ coins: player.coins, cost: PACK_COST, premiumCost: PACK_PREMIUM_COST });
 }

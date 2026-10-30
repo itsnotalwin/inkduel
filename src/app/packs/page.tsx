@@ -8,7 +8,7 @@ import { getCard } from "@/game/cards";
 import { sound } from "@/lib/sound";
 import { CardFace } from "@/components/card/CardFace";
 import { HandNote, Panel, Stamp, StampButton, WashiTape } from "@/components/paper";
-import { PACK_COST } from "@/game/packs";
+import { PACK_COST, PACK_PREMIUM_COST, type PackType } from "@/game/packs";
 
 const RARITY_TONE: Record<string, "ink" | "red"> = {
   common: "ink",
@@ -31,6 +31,9 @@ export default function PacksPage() {
   const [revealed, setRevealed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [pullScene, setPullScene] = useState<{ cardId: string; legendary: boolean } | null>(null);
+  const [packType, setPackType] = useState<PackType>("standard");
+
+  const costPer = packType === "collected" ? PACK_PREMIUM_COST : PACK_COST;
 
   useEffect(() => {
     void (async () => {
@@ -45,7 +48,7 @@ export default function PacksPage() {
     setResult(null);
     setRevealed(0);
     setPullScene(null);
-    const res = await openPacks(packs);
+    const res = await openPacks(packs, packType);
     setOpening(false);
     if (!res) {
       setError("Not enough ink for that many packs.");
@@ -145,22 +148,43 @@ export default function PacksPage() {
                   <circle cx="30" cy="31" r="4.5" fill="none" stroke="var(--color-ink)" strokeWidth="1.8" />
                   <path d="M14 12 L46 12 M14 66 L46 66" stroke="var(--color-pencil)" strokeWidth="1.4" strokeDasharray="3 2.4" />
                 </svg>
-                <div className="label-type mt-2 text-xs">{PACK_COST} INK</div>
-                <HandNote className="text-lg">5 cards each · rare or better guaranteed</HandNote>
+                <div className="label-type mt-2 text-xs">{costPer} INK</div>
+                <HandNote className="text-lg">
+                  {packType === "collected" ? "5 cards · epic or better guaranteed" : "5 cards each · rare or better guaranteed"}
+                </HandNote>
               </div>
             </Panel>
           </motion.div>
 
-          <div className="mt-6 flex flex-col items-center gap-3">
-            <StampButton size="lg" disabled={opening || coins < PACK_COST} onClick={() => open(1)}>
-              {opening ? "Opening…" : "Open 1 Pack"}
+          <div className="mt-4 flex items-center gap-2" role="radiogroup" aria-label="Pack type">
+            <StampButton
+              size="sm"
+              aria-pressed={packType === "standard"}
+              className={packType === "standard" ? "" : "opacity-60"}
+              onClick={() => setPackType("standard")}
+            >
+              Standard · {PACK_COST} ink
             </StampButton>
             <StampButton
               size="sm"
-              disabled={opening || coins < PACK_COST * 5}
+              aria-pressed={packType === "collected"}
+              className={packType === "collected" ? "" : "opacity-60"}
+              onClick={() => setPackType("collected")}
+            >
+              Collected Works · {PACK_PREMIUM_COST} ink
+            </StampButton>
+          </div>
+
+          <div className="mt-6 flex flex-col items-center gap-3">
+            <StampButton size="lg" disabled={opening || coins < costPer} onClick={() => open(1)}>
+              {opening ? "Opening…" : `Open 1 (${costPer} ink)`}
+            </StampButton>
+            <StampButton
+              size="sm"
+              disabled={opening || coins < costPer * 5}
               onClick={() => open(5)}
             >
-              Open 5 ({PACK_COST * 5} ink)
+              Open 5 ({costPer * 5} ink)
             </StampButton>
             {error && <HandNote className="text-xl">✎ {error}</HandNote>}
             <HandNote className="text-xl">duplicates refund 20 ink automatically</HandNote>

@@ -8,7 +8,12 @@ import { CARDS, COLLECTIBLE_CARDS } from "./cards";
 
 export const PACK_SIZE = 5;
 export const PACK_COST = 100;
+/** The Collected Works pack — guaranteed epic or better, but pricier. */
+export const PACK_PREMIUM_COST = 150;
 export const DUPLICATE_REFUND = 20;
+
+export type PackFloor = "rare" | "epic";
+export type PackType = "standard" | "collected";
 
 export type Rarity = "common" | "rare" | "epic" | "legendary";
 
@@ -34,16 +39,20 @@ function randomOf<T>(arr: T[], rand: number): T {
   return arr[Math.floor(rand * arr.length)];
 }
 
-/** Roll a pack. `owned` = every collectible card id the player already has. */
-export function rollPack(owned: ReadonlySet<string>, rand: () => number): PackResult {
+/** Roll a pack. `owned` = every collectible card id the player already has.
+ *  `floor` = the guaranteed minimum rarity of the last slot. */
+export function rollPack(owned: ReadonlySet<string>, rand: () => number, floor: PackFloor = "rare"): PackResult {
   const unowned = new Set(COLLECTIBLE_CARDS.filter((c) => !owned.has(c.id)).map((c) => c.id));
   const cards: PackCard[] = [];
+  const meetsFloor = (cardId: string) =>
+    floor === "rare" ? rarityAt(cardId) !== "common" : rarityAt(cardId) === "epic" || rarityAt(cardId) === "legendary";
 
   for (let i = 0; i < PACK_SIZE; i++) {
-    // the last slot is the "floor" slot — upgrade to rare+ if the pack had no rare+
+    // the last slot is the "floor" slot — upgrade if the pack hasn't met its floor yet
     let rarity = rollRarity(rand());
-    if (i === PACK_SIZE - 1 && !cards.some((c) => c.cardId && rarityAt(c.cardId) !== "common") && rarity === "common") {
-      rarity = "rare";
+    if (i === PACK_SIZE - 1 && !cards.some((c) => meetsFloor(c.cardId))) {
+      if (floor === "rare" && rarity === "common") rarity = "rare";
+      if (floor === "epic" && (rarity === "common" || rarity === "rare")) rarity = "epic";
     }
     const pool = CARDS.filter((c) => !c.token && c.rarity === rarity);
     // prefer unowned cards at this rarity

@@ -68,6 +68,24 @@ describe("packs", () => {
     }
   });
 
+  it("collected works packs always yield at least one epic+", () => {
+    for (let seed = 0; seed < 300; seed++) {
+      let s = seed * 40503 + 7;
+      const rand = () => {
+        s = (s + 0x6d2b79f5) | 0;
+        let t = s;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+      const result = rollPack(new Set(), rand, "epic");
+      const hasEpicPlus = result.cards.some((c) =>
+        ["epic", "legendary"].includes(COLLECTIBLE_CARDS.find((x) => x.id === c.cardId)?.rarity ?? "common"),
+      );
+      expect(hasEpicPlus, `pack ${seed}: ${result.cards.map((c) => c.cardId).join(",")}`).toBe(true);
+    }
+  });
+
   // ── §3.1 roadmap step one: RNG distribution over a huge sample ─────────
 
   function seededRand(seed: number): () => number {

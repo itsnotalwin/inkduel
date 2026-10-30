@@ -17,7 +17,7 @@ import { questForDate, todayKey, QUEST_TEMPLATES } from "@/lib/quests";
 import { ARCHETYPE_DECKS, COLLECTIBLE_CARDS, getCard } from "@/game/cards";
 import { randomDeck } from "@/game/decks";
 import { CAMPAIGN_STAGES } from "@/game/campaign";
-import { PACK_COST, rollPack, slipsFromDuplicates, addSlips, canCraft, spendSlips, ZERO_SLIPS, type Slips } from "@/game/packs";
+import { PACK_COST, PACK_PREMIUM_COST, rollPack, slipsFromDuplicates, addSlips, canCraft, spendSlips, ZERO_SLIPS, type PackFloor, type PackType, type Slips } from "@/game/packs";
 import { STARTING_MMR } from "@/config";
 
 
@@ -243,14 +243,17 @@ export interface PackResult {
   cost: number;
   coinsBefore: number;
   coinsAfter: number;
+  packType?: PackType;
   slipsEarned?: Slips;
   slips?: Slips;
 }
 
-export function openPacks(packs = 1): Promise<PackResult | null> {
+export function openPacks(packs = 1, type: PackType = "standard"): Promise<PackResult | null> {
+  const floor: PackFloor = type === "collected" ? "epic" : "rare";
+  const unitCost = type === "collected" ? PACK_PREMIUM_COST : PACK_COST;
   if (!CLOUD) {
     const profile = localProfile();
-    const cost = packs * PACK_COST;
+    const cost = packs * unitCost;
     if (profile.coins < cost) return Promise.resolve(null);
     const held = localAchievementKeys(localMatches(), profile, localDecks().filter((d) => d.isCustom).length);
     const owned = ownedCardIds([...held], read<string[]>("inkduel:extraCards", []));
@@ -259,7 +262,7 @@ export function openPacks(packs = 1): Promise<PackResult | null> {
     let totalRefund = 0;
     const extras = new Set(read<string[]>("inkduel:extraCards", []));
     for (let i = 0; i < packs; i++) {
-      const result = rollPack(owned, Math.random);
+      const result = rollPack(owned, Math.random, floor);
       for (const card of result.cards) {
         cards.push(card);
         if (card.isNew) {
@@ -284,11 +287,12 @@ export function openPacks(packs = 1): Promise<PackResult | null> {
       cost,
       coinsBefore: profile.coins,
       coinsAfter: updated.coins,
+      packType: type,
       slipsEarned,
       slips,
     });
   }
-  return request<PackResult>("/api/packs", { method: "POST", body: JSON.stringify({ packs }) });
+  return request<PackResult>("/api/packs", { method: "POST", body: JSON.stringify({ packs, type }) });
 }
 
 // ── ink recycling (crafting) ────────────────────────────────────────────
