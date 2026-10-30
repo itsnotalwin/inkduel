@@ -5,8 +5,11 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ensureGuest, getCampaign, type CampaignState } from "@/lib/api";
 import { getCard } from "@/game/cards";
+import { CAMPAIGN_STAGES } from "@/game/campaign";
 import { HandNote, Panel, Stamp, StampButton } from "@/components/paper";
 import { RankBadge } from "@/components/rank-badge";
+
+const STAGE_TOTAL = CAMPAIGN_STAGES.length;
 
 export default function CampaignPage() {
   const [state, setState] = useState<CampaignState | null>(null);
@@ -21,10 +24,10 @@ export default function CampaignPage() {
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-6 pb-16">
       <header className="mt-10 text-center">
-        <div className="label-type text-[11px] text-graphite">THE ARCHIVE CAMPAIGN · 12 STAGES</div>
+        <div className="label-type text-[11px] text-graphite">THE ARCHIVE CAMPAIGN · {STAGE_TOTAL} STAGES</div>
         <h1 className="small-caps mt-1 border-y-4 border-ink py-3 text-5xl font-bold">The Campaign</h1>
         <HandNote className="mt-2 text-xl">
-          twelve keepers stand between you and the Head Archivist. Beat each one once for the purse — replays pay a little.
+          {STAGE_TOTAL} keepers stand between you and the Head Archivist. Beat each one once for the purse — replays pay a little.
         </HandNote>
       </header>
 

@@ -129,7 +129,8 @@ for (const r of results) {
 
 // difficulty should roughly escalate: late-stage proxy win rate < early-stage
 const early = results.slice(0, 4).reduce((n, r) => n + r.wins, 0) / (4 * GAMES_PER_STAGE);
-const late = results.slice(8).reduce((n, r) => n + r.wins, 0) / (4 * GAMES_PER_STAGE);
+const lateCount = results.length - 8;
+const late = results.slice(8).reduce((n, r) => n + r.wins, 0) / (lateCount * GAMES_PER_STAGE);
 console.log(`early-stage win rate ${Math.round(early * 100)}% vs late-stage ${Math.round(late * 100)}%`);
 if (late >= early) {
   console.error("  FAIL: late stages are not harder than early stages — difficulty does not escalate");

@@ -126,8 +126,13 @@ features. Work top-down; each item is small and lands immediately.
       54–58% vs everyone. Stats in `CHANGELOG.md`.
 - [ ] **Deck builder QoL** — card search inside the builder, auto-fill
       remaining slots with the curve, mana-curve hover shows card names.
-- [ ] **Campaign act 2** — stages 13–20 introducing wave-3 cards as enemy
-      staples; Head Archivist rematch with a remixed deck.
+- [x] **Campaign act 2** — shipped: stages 13–20 ("the Sealed Wing") with
+      wave-3 staples as enemy cards (Fools Cap, Wax Seal, Reinforced Margins,
+      Scotch Guard, Ruler Regent, The Second Edition). Reward cards at the
+      milestone stages are now archive cards (Accordion File, Mimeograph
+      Mage) and the final clear grants the pull-only legendary **The Second
+      Edition**. Smoke-verified: every stage winnable (final boss 23%),
+      difficulty escalates (early 76% vs late 69%).
 - [ ] **Onboarding follow-up** — after 3 duels, surface one-time deep-dive
       tips (Tempo Token advanced uses, Guard math, fatigue planning).
 

@@ -5,8 +5,8 @@ import { rollPack, PACK_SIZE, PACK_COST, DUPLICATE_REFUND } from "@/game/packs";
 import { COLLECTIBLE_CARDS } from "@/game/cards";
 
 describe("campaign", () => {
-  it("has 12 consecutive stages", () => {
-    expect(CAMPAIGN_STAGES).toHaveLength(12);
+  it("has 20 consecutive stages", () => {
+    expect(CAMPAIGN_STAGES).toHaveLength(20);
     CAMPAIGN_STAGES.forEach((s, i) => expect(s.index).toBe(i));
   });
 

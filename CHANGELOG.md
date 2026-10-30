@@ -119,3 +119,20 @@ The matrix is now a healthy rock-paper-scissors triangle — Archivist beats
 Duelist (82%), Duelist beats Collector (92%), Collector beats Archivist
 (58%) — with no 0/N cells and the Gambler live everywhere. Campaign smoke
 stays green (early 76% / late 61%, hardest stage 23%, zero illegal actions).
+
+## Campaign act 2 — "The Sealed Wing" (stages 13–20)
+
+Eight new stages continue past the Head Archivist into the restricted wing,
+introducing the wave-3 cards as enemy staples (Fools Cap, Wax Seal, Reinforced
+Margins, Scotch Guard, Ruler Regent, Sticker Swarm, and the legendary The
+Second Edition). The campaign page header now derives its stage count from
+data instead of the hardcoded "12".
+
+- Milestone reward cards are now archive cards: stage 16 grants Accordion
+  File, stage 18 grants Mimeograph Mage, and clearing stage 20 grants the
+  pull-only legendary **The Second Edition** — the campaign-completion prize.
+- The Head Archivist rematch ("THE HEAD ARCHIVIST: SEALED WING") runs six
+  legendaries including The Second Edition itself.
+- Smoke-verified over 600 games: every stage winnable by the proxy (final
+  boss 23%), difficulty escalates (early 76% vs late 69%), zero illegal
+  actions.
