@@ -8,6 +8,7 @@ import {
   CRAFT_COST,
   type PackCard,
 } from "@/game/packs";
+import { COLLECTIBLE_CARDS, COLLECTIBLE_SETS, computeSetCompletion, pendingSetRewards } from "@/game/cards";
 
 function card(cardId: string, isNew: boolean): PackCard {
   return { cardId, isNew, refund: isNew ? 0 : 20 };
@@ -47,5 +48,29 @@ describe("ink recycling slips", () => {
     expect(CRAFT_COST.common).toBeLessThan(CRAFT_COST.rare);
     expect(CRAFT_COST.rare).toBeLessThan(CRAFT_COST.epic);
     expect(CRAFT_COST.epic).toBeLessThan(CRAFT_COST.legendary);
+  });
+});
+
+describe("card set completion", () => {
+  it("partitions every collectible card into exactly one set", () => {
+    const union = new Set(COLLECTIBLE_SETS.flatMap((s) => s.ids));
+    expect(union.size).toBe(COLLECTIBLE_CARDS.length);
+    for (const c of COLLECTIBLE_CARDS) expect(union.has(c.id), c.id).toBe(true);
+  });
+
+  it("tracks completion and grants each set reward exactly once", () => {
+    const first = COLLECTIBLE_SETS[0];
+    const owned = new Set(first!.ids);
+    let completion = computeSetCompletion(owned, new Set());
+    expect(completion[0]!.complete).toBe(true);
+    expect(completion[0]!.rewardClaimed).toBe(false);
+    expect(completion[1]!.complete).toBe(false);
+    expect(pendingSetRewards(completion)).toEqual(["first-edition"]);
+
+    // after claiming, the reward never pends again
+    completion = computeSetCompletion(owned, new Set(["first-edition"]));
+    expect(pendingSetRewards(completion)).toEqual([]);
+    expect(completion[0]!.complete).toBe(true);
+    expect(completion[0]!.rewardClaimed).toBe(true);
   });
 });

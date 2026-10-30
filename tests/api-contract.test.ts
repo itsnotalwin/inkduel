@@ -468,6 +468,36 @@ describe("ink recycling (craft)", () => {
   });
 });
 
+describe("card set completion rewards", () => {
+  it("reports sets, pays each completion reward exactly once", async () => {
+    const mainToken = jar.get(SESSION_COOKIE)!;
+    jar.clear();
+    await expectOk(guestPost(post("/api/auth/guest", { name: "Set Hunter" })));
+    const me1 = await expectOk(meGet());
+    const completion = me1.setCompletion as { key: string; owned: number; total: number; complete: boolean; rewardClaimed: boolean }[];
+    expect(completion).toHaveLength(2);
+    // a fresh player owns all non-legendary First Edition cards, no Archive cards
+    expect(completion[0]!.owned).toBeGreaterThan(0);
+    expect(completion[0]!.owned).toBeLessThan(completion[0]!.total);
+    expect(completion[1]!.owned).toBe(0);
+    expect(completion[1]!.complete).toBe(false);
+
+    // hand the player the full Archive Set, then expect a single 500-ink payout
+    await prisma.player.update({
+      where: { id: (await prisma.player.findFirst({ where: { sessionToken: jar.get(SESSION_COOKIE)! } }))!.id },
+      data: { extraCards: [...ARCHIVE_SET_IDS] },
+    });
+    const me2 = await expectOk(meGet());
+    expect((me2.setCompletion as { key: string; complete: boolean }[]).find((s) => s.key === "archive")?.complete).toBe(true);
+    expect(me2.coins).toBe((me1.coins as number) + 500);
+
+    // idempotent: a second read must not pay out again
+    const me3 = await expectOk(meGet());
+    expect(me3.coins).toBe(me2.coins);
+    jar.set(SESSION_COOKIE, mainToken);
+  });
+});
+
 describe("ink ledger fuzz", () => {
   // 48 ops × several DB round-trips each — needs more than the 5s default on
   // slow filesystems when the suite runs in parallel

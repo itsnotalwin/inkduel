@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { fail, getSessionPlayer, ok } from "@/lib/session";
 import { ACHIEVEMENTS } from "@/lib/achievements";
 import { ownedCardIds } from "@/lib/collection";
-import { COLLECTIBLE_CARDS } from "@/game/cards";
+import { COLLECTIBLE_CARDS, computeSetCompletion, pendingSetRewards } from "@/game/cards";
 import { CAMPAIGN_STAGES } from "@/game/campaign";
 import { ZERO_SLIPS } from "@/game/packs";
 import { rankFor } from "@/config";
@@ -24,11 +24,29 @@ export async function GET() {
   }));
 
   const matches = player.wins + player.losses + player.draws;
+
+  // set completion + one-time ink payouts (lazy grant, idempotent)
+  const settings = (player.settings as Record<string, unknown> | null) ?? {};
+  const claimed = new Set((settings.setRewards as string[] | null) ?? []);
+  const setCompletion = computeSetCompletion(owned, claimed);
+  const newlyClaimed = pendingSetRewards(setCompletion);
+  let coins = player.coins;
+  if (newlyClaimed.length > 0) {
+    for (const key of newlyClaimed) claimed.add(key);
+    const payout = newlyClaimed.reduce((n, key) => n + (setCompletion.find((s) => s.key === key)?.rewardInk ?? 0), 0);
+    coins += payout;
+    await prisma.player.update({
+      where: { id: player.id },
+      data: { coins, settings: { ...settings, setRewards: [...claimed] } },
+    });
+  }
+
   return ok({
     id: player.id,
     name: `${player.name}${player.tag}`,
     mmr: player.mmr,
-    coins: player.coins,
+    coins,
+    setCompletion,
     slips: { ...ZERO_SLIPS, ...((player.recycleSlips as Record<string, number> | null) ?? {}) },
     campaignStage: player.campaignStage,
     campaignTotal: CAMPAIGN_STAGES.length,

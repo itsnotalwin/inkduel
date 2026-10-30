@@ -5,13 +5,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ensureGuest, getMe, craftCard, type MeProfile } from "@/lib/api";
 import { CardFace } from "@/components/card/CardFace";
 import { HandNote, Panel, StampButton, WashiTape } from "@/components/paper";
-import { ARCHIVE_SET_IDS, KEYWORD_LABEL, getCard, type CardDef, type Keyword } from "@/game/cards";
+import { ARCHIVE_SET_IDS, COLLECTIBLE_SETS, KEYWORD_LABEL, getCard, type CardDef, type Keyword } from "@/game/cards";
 import { CRAFT_COST, ZERO_SLIPS, type Slips } from "@/game/packs";
 
 type TypeFilter = "all" | "unit" | "spell";
 type RarityFilter = "all" | "common" | "rare" | "epic" | "legendary";
 type KeywordFilter = "all" | Keyword;
 type OwnedFilter = "all" | "owned" | "locked";
+type SetFilter = "all" | string;
 
 export default function CollectionPage() {
   const [me, setMe] = useState<MeProfile | null>(null);
@@ -19,6 +20,7 @@ export default function CollectionPage() {
   const [rarity, setRarity] = useState<RarityFilter>("all");
   const [keyword, setKeyword] = useState<KeywordFilter>("all");
   const [ownedFilter, setOwnedFilter] = useState<OwnedFilter>("all");
+  const [setFilter, setSetFilter] = useState<SetFilter>("all");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<CardDef | null>(null);
 
@@ -39,10 +41,14 @@ export default function CollectionPage() {
       if (keyword !== "all" && !(c.keywords ?? []).includes(keyword)) return false;
       if (ownedFilter === "owned" && !ownedIds.has(c.id)) return false;
       if (ownedFilter === "locked" && ownedIds.has(c.id)) return false;
+      if (setFilter !== "all") {
+        const set = COLLECTIBLE_SETS.find((s) => s.key === setFilter);
+        if (set && !set.ids.includes(c.id)) return false;
+      }
       if (query && !c.name.toLowerCase().includes(query.toLowerCase())) return false;
       return true;
     });
-  }, [me, type, rarity, keyword, ownedFilter, query, ownedIds]);
+  }, [me, type, rarity, keyword, ownedFilter, setFilter, query, ownedIds]);
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-6 pb-16">
@@ -50,6 +56,32 @@ export default function CollectionPage() {
         <div className="label-type text-[11px] text-graphite">EVERY CARD, DRAWN BY HAND</div>
         <h1 className="small-caps mt-1 border-y-4 border-ink py-3 text-5xl font-bold">The Collection</h1>
       </header>
+
+      {/* set completion chips — click to filter */}
+      {me !== null && (
+        <div className="mt-5 flex flex-wrap justify-center gap-3">
+          {me.setCompletion.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setSetFilter((cur) => (cur === s.key ? "all" : s.key))}
+              aria-pressed={setFilter === s.key}
+              className="focus-ink label-type px-3 py-1.5 text-[10px]"
+              style={{
+                border: "2px solid var(--color-ink)",
+                borderRadius: "var(--cut-a)",
+                background: setFilter === s.key ? "var(--color-ink)" : "var(--color-cardstock)",
+                color: setFilter === s.key ? "var(--color-paper)" : "var(--color-ink)",
+                opacity: s.complete || s.rewardClaimed ? 1 : 0.85,
+              }}
+              title={s.complete ? (s.rewardClaimed ? "completion reward claimed" : `completion reward: ${s.rewardInk} ink`) : `${s.total - s.owned} cards to go`}
+            >
+              {s.name.toUpperCase()} · {s.owned}/{s.total}
+              {s.complete && " ✓"}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* filters */}
       <Panel className="mt-6 flex flex-wrap items-center gap-3 p-3" deep>

@@ -14,7 +14,7 @@ import { ACHIEVEMENTS, legendaryUnlocks } from "@/lib/achievements";
 import { ownedCardIds } from "@/lib/collection";
 import { eloDelta, type MatchResult } from "@/lib/elo";
 import { questForDate, todayKey, QUEST_TEMPLATES } from "@/lib/quests";
-import { ARCHETYPE_DECKS, COLLECTIBLE_CARDS, getCard } from "@/game/cards";
+import { ARCHETYPE_DECKS, COLLECTIBLE_CARDS, computeSetCompletion, getCard, pendingSetRewards, SET_COMPLETE_REWARD } from "@/game/cards";
 import { randomDeck } from "@/game/decks";
 import { CAMPAIGN_STAGES } from "@/game/campaign";
 import { PACK_COST, PACK_PREMIUM_COST, rollPack, slipsFromDuplicates, addSlips, canCraft, spendSlips, ZERO_SLIPS, type PackFloor, type PackType, type Slips } from "@/game/packs";
@@ -102,6 +102,16 @@ export interface MeProfile {
   coins: number;
   /** Ink Recycling progress: duplicate slips per rarity. */
   slips: Slips;
+  /** Per-set owned/total + one-time completion rewards. */
+  setCompletion: {
+    key: string;
+    name: string;
+    owned: number;
+    total: number;
+    complete: boolean;
+    rewardClaimed: boolean;
+    rewardInk: number;
+  }[];
   campaignStage: number;
   campaignTotal: number;
   rank: { key: string; name: string; min: number };
@@ -469,11 +479,24 @@ function localMe(): MeProfile {
   const total = matches.length;
   const extras = read<string[]>("inkduel:extraCards", []);
   const owned = ownedCardIds([...held], extras);
+  // set completion + one-time ink payouts (lazy grant, idempotent)
+  const claimed = new Set(read<string[]>("inkduel:setRewards", []));
+  const setCompletion = computeSetCompletion(owned, claimed);
+  const newlyClaimed = pendingSetRewards(setCompletion);
+  let coins = profile.coins;
+  if (newlyClaimed.length > 0) {
+    for (const key of newlyClaimed) claimed.add(key);
+    coins += newlyClaimed.reduce((n, key) => n + (SET_COMPLETE_REWARD[key] ?? 0), 0);
+    write("inkduel:setRewards", [...claimed]);
+    const updated: LocalProfile = { ...profile, coins };
+    write(PROFILE_KEY, updated);
+  }
   return {
     id: "local",
     name: profile.name,
     mmr: profile.mmr,
-    coins: profile.coins,
+    coins,
+    setCompletion,
     slips: localSlips(),
     campaignStage: read<number>("inkduel:campaignStage", 0),
     campaignTotal: CAMPAIGN_STAGES.length,

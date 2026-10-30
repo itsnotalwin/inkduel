@@ -191,6 +191,62 @@ export const ARCHIVE_SET_IDS = new Set([
   "final_notice", "the_second_edition",
 ]);
 
+// ── Card sets (collection filters + completion rewards) ────────────────
+
+export interface CardSet {
+  key: string;
+  name: string;
+  ids: string[];
+}
+
+/** Collectible sets in release order. First Edition = the default-owned wave. */
+export const COLLECTIBLE_SETS: CardSet[] = [
+  {
+    key: "first-edition",
+    name: "First Edition",
+    ids: COLLECTIBLE_CARDS.filter((c) => !ARCHIVE_SET_IDS.has(c.id)).map((c) => c.id),
+  },
+  {
+    key: "archive",
+    name: "The Archive Set",
+    ids: COLLECTIBLE_CARDS.filter((c) => ARCHIVE_SET_IDS.has(c.id)).map((c) => c.id),
+  },
+];
+
+/** One-time ink payout the first time a set is completed. */
+export const SET_COMPLETE_REWARD: Record<string, number> = { "first-edition": 300, archive: 500 };
+
+export interface SetCompletion {
+  key: string;
+  name: string;
+  owned: number;
+  total: number;
+  complete: boolean;
+  rewardClaimed: boolean;
+  rewardInk: number;
+}
+
+/** Shared by the server, the client and the paper edition. */
+export function computeSetCompletion(owned: ReadonlySet<string>, claimed: ReadonlySet<string>): SetCompletion[] {
+  return COLLECTIBLE_SETS.map((s) => {
+    const ownedCount = s.ids.filter((id) => owned.has(id)).length;
+    const complete = ownedCount === s.ids.length;
+    return {
+      key: s.key,
+      name: s.name,
+      owned: ownedCount,
+      total: s.ids.length,
+      complete,
+      rewardClaimed: claimed.has(s.key),
+      rewardInk: SET_COMPLETE_REWARD[s.key] ?? 0,
+    };
+  });
+}
+
+export function pendingSetRewards(completion: SetCompletion[]): string[] {
+  return completion.filter((s) => s.complete && !s.rewardClaimed).map((s) => s.key);
+}
+
 /** Keywords that grant the ability purely by being on the card. */
 export const KEYWORD_LABEL: Record<Keyword, string> = {
   guard: "Guard",
