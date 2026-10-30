@@ -46,12 +46,20 @@ features. Work top-down; each item is small and lands immediately.
       ✅ Shipped in `tests/economy.test.ts` — 50k packs, rarity bands pass,
       rare+ floor verified in every pack (and proven non-vacuous: the floor
       fires in ~17% of packs), no tokens leak, unowned preference measured.
-- [ ] **Full-wave engine tests** — one test per wave-2/3 card effect
-      (currently only the original 40 have per-effect tests; waves 2–3 are
-      covered by the AI harness only).
-- [ ] **Campaign AI smoke** — simulate every campaign stage headlessly
-      (extend `scripts/simulate.ts` to accept campaign decks) and assert
-      stages 1–4 are winnable by a basic policy, stages 10–12 are not.
+- [x] **Full-wave engine tests** — one test per wave-2/3 card effect
+      ✅ Shipped in `tests/wave-effects.test.ts` — 40 per-effect tests; also
+      surfaced and fixed a real engine bug (hero-targeted burn silently
+      no-op'ing) and refound the Duelist-vs-Archivist lopsided matchup.
+- [x] **Campaign AI smoke** — simulate every campaign stage headlessly and
+      assert zero illegal actions, stages 1–4 winnable by a basic policy,
+      difficulty escalation, and every stage beatable by ≥1 proxy archetype.
+      ✅ Shipped as `scripts/campaign-smoke.ts` (standalone, not folded into
+      `simulate.ts`): 30 seeded games per stage with an aggro proxy, plus an
+      automatic control-proxy re-run for any stage the aggro proxy can't
+      crack (<10%). First run exposed stage 4 (Sticky Situations) and stage
+      6 (Inkwell Serpents) as guard-walls the proxy could not beat — both
+      decks retuned; final gate: early 69% vs late 50% proxy win rate, 0
+      illegal actions across all 360 games.
 - [ ] **API contract tests** — hit every route with Zod-invalid payloads and
       assert the `{ok:false}` envelope + status codes (extend
       `scripts/api-smoke.mjs` into a CI-runnable form).
