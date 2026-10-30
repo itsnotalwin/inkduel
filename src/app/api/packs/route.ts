@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { fail, getSessionPlayer, ok } from "@/lib/session";
 import { ownedCardIds } from "@/lib/collection";
-import { PACK_COST, rollPack } from "@/game/packs";
+import { PACK_COST, rollPack, slipsFromDuplicates, addSlips, ZERO_SLIPS, type Slips } from "@/game/packs";
 
 /**
  * Open a card pack for ink. Server-side roll (authoritative). New cards are
@@ -46,11 +46,16 @@ export async function POST(request: Request) {
     totalRefund += result.totalRefund;
   }
 
+  // Ink Recycling: every duplicate becomes a slip of its rarity
+  const currentSlips: Slips = { ...ZERO_SLIPS, ...((player.recycleSlips as Slips | null) ?? {}) };
+  const earned = slipsFromDuplicates(allResults.flat());
+  const slipsAfter = addSlips(currentSlips, earned);
+
   const coinsAfter = player.coins - cost + totalRefund;
   const flat = allResults.flat();
   await prisma.player.update({
     where: { id: player.id },
-    data: { coins: coinsAfter, extraCards: [...extras, ...newCards] },
+    data: { coins: coinsAfter, extraCards: [...extras, ...newCards], recycleSlips: slipsAfter },
   });
 
   return ok({
@@ -60,6 +65,8 @@ export async function POST(request: Request) {
     cost,
     coinsBefore: player.coins,
     coinsAfter,
+    slipsEarned: earned,
+    slips: slipsAfter,
     opened: new Date().toISOString(),
   });
 }

@@ -4,6 +4,7 @@ import { ACHIEVEMENTS } from "@/lib/achievements";
 import { ownedCardIds } from "@/lib/collection";
 import { COLLECTIBLE_CARDS } from "@/game/cards";
 import { CAMPAIGN_STAGES } from "@/game/campaign";
+import { ZERO_SLIPS } from "@/game/packs";
 import { rankFor } from "@/config";
 
 export async function GET() {
@@ -28,6 +29,7 @@ export async function GET() {
     name: `${player.name}${player.tag}`,
     mmr: player.mmr,
     coins: player.coins,
+    slips: { ...ZERO_SLIPS, ...((player.recycleSlips as Record<string, number> | null) ?? {}) },
     campaignStage: player.campaignStage,
     campaignTotal: CAMPAIGN_STAGES.length,
     rank: rankFor(player.mmr),

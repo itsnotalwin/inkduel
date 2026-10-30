@@ -61,3 +61,37 @@ export function rarityAt(cardId: string): Rarity {
   const c = CARDS.find((x) => x.id === cardId);
   return (c?.rarity as Rarity) ?? "common";
 }
+
+// ── Ink Recycling: duplicates accumulate into craftable slips ──────────
+
+export type Slips = Record<Rarity, number>;
+
+export const ZERO_SLIPS: Slips = { common: 0, rare: 0, epic: 0, legendary: 0 };
+
+/** Duplicates of a rarity needed to craft any unowned card of that rarity. */
+export const CRAFT_COST: Record<Rarity, number> = { common: 2, rare: 3, epic: 4, legendary: 5 };
+
+export function slipsFromDuplicates(dupes: PackCard[]): Slips {
+  const slips: Slips = { ...ZERO_SLIPS };
+  for (const card of dupes) {
+    if (!card.isNew) slips[rarityAt(card.cardId)] += 1;
+  }
+  return slips;
+}
+
+export function addSlips(slips: Slips, gained: Slips): Slips {
+  return {
+    common: slips.common + gained.common,
+    rare: slips.rare + gained.rare,
+    epic: slips.epic + gained.epic,
+    legendary: slips.legendary + gained.legendary,
+  };
+}
+
+export function spendSlips(slips: Slips, rarity: Rarity): Slips {
+  return { ...slips, [rarity]: slips[rarity] - CRAFT_COST[rarity] };
+}
+
+export function canCraft(slips: Slips, rarity: Rarity): boolean {
+  return slips[rarity] >= CRAFT_COST[rarity];
+}

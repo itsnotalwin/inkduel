@@ -14,10 +14,10 @@ import { ACHIEVEMENTS, legendaryUnlocks } from "@/lib/achievements";
 import { ownedCardIds } from "@/lib/collection";
 import { eloDelta, type MatchResult } from "@/lib/elo";
 import { questForDate, todayKey, QUEST_TEMPLATES } from "@/lib/quests";
-import { ARCHETYPE_DECKS, COLLECTIBLE_CARDS } from "@/game/cards";
+import { ARCHETYPE_DECKS, COLLECTIBLE_CARDS, getCard } from "@/game/cards";
 import { randomDeck } from "@/game/decks";
 import { CAMPAIGN_STAGES } from "@/game/campaign";
-import { PACK_COST, rollPack } from "@/game/packs";
+import { PACK_COST, rollPack, slipsFromDuplicates, addSlips, canCraft, spendSlips, ZERO_SLIPS, type Slips } from "@/game/packs";
 import { STARTING_MMR } from "@/config";
 
 
@@ -100,6 +100,8 @@ export interface MeProfile {
   name: string;
   mmr: number;
   coins: number;
+  /** Ink Recycling progress: duplicate slips per rarity. */
+  slips: Slips;
   campaignStage: number;
   campaignTotal: number;
   rank: { key: string; name: string; min: number };
@@ -241,6 +243,8 @@ export interface PackResult {
   cost: number;
   coinsBefore: number;
   coinsAfter: number;
+  slipsEarned?: Slips;
+  slips?: Slips;
 }
 
 export function openPacks(packs = 1): Promise<PackResult | null> {
@@ -266,6 +270,10 @@ export function openPacks(packs = 1): Promise<PackResult | null> {
         totalRefund += card.refund;
       }
     }
+    // Ink Recycling: duplicates become slips of their rarity
+    const slipsEarned = slipsFromDuplicates(cards);
+    const slips = addSlips(localSlips(), slipsEarned);
+    write("inkduel:slips", slips);
     const updated: LocalProfile = { ...profile, coins: profile.coins - cost + totalRefund };
     write(PROFILE_KEY, updated);
     write("inkduel:extraCards", [...extras]);
@@ -276,9 +284,36 @@ export function openPacks(packs = 1): Promise<PackResult | null> {
       cost,
       coinsBefore: profile.coins,
       coinsAfter: updated.coins,
+      slipsEarned,
+      slips,
     });
   }
   return request<PackResult>("/api/packs", { method: "POST", body: JSON.stringify({ packs }) });
+}
+
+// ── ink recycling (crafting) ────────────────────────────────────────────
+
+/** Craft an unowned card with duplicate slips. Null = not enough slips / already owned. */
+export function craftCard(cardId: string): Promise<Slips | null> {
+  if (!CLOUD) {
+    const slips = localSlips();
+    let def;
+    try {
+      def = getCard(cardId);
+    } catch {
+      return Promise.resolve(null);
+    }
+    const held = localAchievementKeys(localMatches(), localProfile(), localDecks().filter((d) => d.isCustom).length);
+    const owned = ownedCardIds([...held], read<string[]>("inkduel:extraCards", []));
+    if (owned.has(def.id) || !canCraft(slips, def.rarity)) return Promise.resolve(null);
+    const after = spendSlips(slips, def.rarity);
+    write("inkduel:slips", after);
+    const extras = new Set(read<string[]>("inkduel:extraCards", []));
+    extras.add(def.id);
+    write("inkduel:extraCards", [...extras]);
+    return Promise.resolve(after);
+  }
+  return request<Slips>("/api/craft", { method: "POST", body: JSON.stringify({ cardId }) });
 }
 
 // ── campaign ────────────────────────────────────────────────────────────
@@ -435,6 +470,7 @@ function localMe(): MeProfile {
     name: profile.name,
     mmr: profile.mmr,
     coins: profile.coins,
+    slips: localSlips(),
     campaignStage: read<number>("inkduel:campaignStage", 0),
     campaignTotal: CAMPAIGN_STAGES.length,
     rank: { key: "local", name: rankNameFor(profile.mmr), min: 0 },
@@ -500,6 +536,10 @@ export function ensureGuest(name?: string) {
     method: "POST",
     body: JSON.stringify({ name }),
   });
+}
+
+function localSlips(): Slips {
+  return { ...ZERO_SLIPS, ...read<Partial<Slips>>("inkduel:slips", {}) };
 }
 
 function localDailyBonus(): number {

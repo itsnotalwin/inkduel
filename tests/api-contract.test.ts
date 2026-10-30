@@ -34,6 +34,7 @@ vi.mock("next/headers", () => ({
 
 import { POST as guestPost } from "@/app/api/auth/guest/route";
 import { GET as meGet } from "@/app/api/me/route";
+import { POST as craftPost } from "@/app/api/craft/route";
 import { GET as packsGet, POST as packsPost } from "@/app/api/packs/route";
 import { GET as matchesGet, POST as matchesPost } from "@/app/api/matches/route";
 import { GET as campaignGet, POST as campaignPost } from "@/app/api/campaign/route";
@@ -390,6 +391,62 @@ describe("profile readouts", () => {
     expect(quest.progress).toBeGreaterThanOrEqual(0);
     const ach = await expectOk(achievementsGet());
     expect((ach.achievements as unknown[]).length).toBeGreaterThan(0);
+  });
+});
+
+describe("ink recycling (craft)", () => {
+  it("rejects unsigned and malformed calls", async () => {
+    const mainToken = jar.get(SESSION_COOKIE)!;
+    jar.clear(); // prior describes leave a session — the 401 check needs a bare request
+    await expectFail(craftPost(post("/api/craft", { cardId: "ink_drop" })), 401);
+    await expectOk(guestPost(post("/api/auth/guest", { name: "Recycler" })));
+    await expectFail(craftPost(post("/api/craft", {})), 400);
+    await expectFail(craftPost(post("/api/craft", { cardId: "" })), 400);
+    await expectFail(craftPost(post("/api/craft", { cardId: "ghost_card" })), 400);
+    jar.set(SESSION_COOKIE, mainToken);
+  });
+
+  it("refuses owned cards and empty slip purses", async () => {
+    const mainToken = jar.get(SESSION_COOKIE)!;
+    jar.clear();
+    await expectOk(guestPost(post("/api/auth/guest", { name: "Recycler Two" })));
+    // paper_swan is default-owned (wave 1)
+    await expectFail(craftPost(post("/api/craft", { cardId: "paper_swan" })), 400);
+    // fresh player has zero slips — the cheapest archive card is out of reach
+    await expectFail(craftPost(post("/api/craft", { cardId: "ink_drop" })), 422);
+    jar.set(SESSION_COOKIE, mainToken);
+  });
+
+  it("crafts from a funded slip purse and spends exactly the cost", async () => {
+    const mainToken = jar.get(SESSION_COOKIE)!;
+    jar.clear();
+    await expectOk(guestPost(post("/api/auth/guest", { name: "Recycler Three" })));
+    const player = await prisma.player.findFirst({ where: { sessionToken: jar.get(SESSION_COOKIE)! } });
+    expect(player).toBeTruthy();
+    await prisma.player.update({
+      where: { id: player!.id },
+      data: { recycleSlips: { common: 2, rare: 0, epic: 0, legendary: 0 } },
+    });
+    const d = await expectOk(craftPost(post("/api/craft", { cardId: "ink_drop" })));
+    expect((d.slips as { common: number }).common).toBe(0);
+    const me = await expectOk(meGet());
+    expect(((me.slips as { common: number }).common)).toBe(0);
+    expect((me.collection as { id: string; owned: boolean }[]).find((c) => c.id === "ink_drop")?.owned).toBe(true);
+    jar.set(SESSION_COOKIE, mainToken);
+  });
+
+  it("accrues slips from pack duplicates", async () => {
+    const mainToken = jar.get(SESSION_COOKIE)!;
+    jar.clear();
+    await expectOk(guestPost(post("/api/auth/guest", { name: "Recycler Four" })));
+    const d = await expectOk(packsPost(post("/api/packs", { packs: 1 })));
+    const dupes = (d.cards as { cardId: string; isNew: boolean }[]).filter((c) => !c.isNew);
+    const earned = { common: 0, rare: 0, epic: 0, legendary: 0 };
+    for (const dupe of dupes) earned[getCard(dupe.cardId).rarity as keyof typeof earned]++;
+    expect(d.slipsEarned).toEqual(earned);
+    const me = await expectOk(meGet());
+    expect(me.slips).toEqual(d.slips);
+    jar.set(SESSION_COOKIE, mainToken);
   });
 });
 

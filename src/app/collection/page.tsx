@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ensureGuest, getMe, type MeProfile } from "@/lib/api";
+import { ensureGuest, getMe, craftCard, type MeProfile } from "@/lib/api";
 import { CardFace } from "@/components/card/CardFace";
 import { HandNote, Panel, StampButton, WashiTape } from "@/components/paper";
 import { ARCHIVE_SET_IDS, KEYWORD_LABEL, getCard, type CardDef, type Keyword } from "@/game/cards";
+import { CRAFT_COST, ZERO_SLIPS, type Slips } from "@/game/packs";
 
 type TypeFilter = "all" | "unit" | "spell";
 type RarityFilter = "all" | "common" | "rare" | "epic" | "legendary";
@@ -72,6 +73,7 @@ export default function CollectionPage() {
           label="Keyword"
         />
         <FilterSelect value={ownedFilter} onChange={setOwnedFilter} options={[["all", "everything"], ["owned", "owned"], ["locked", "locked"]]} label="Owned" />
+        <SlipsChip slips={me?.slips ?? ZERO_SLIPS} />
         <span className="label-type ml-auto text-[10px] text-graphite">
           {cards.length} shown
         </span>
@@ -137,7 +139,15 @@ export default function CollectionPage() {
                 </div>
                 <p className="mt-3 text-[15px] leading-snug">{selected.text || "No special abilities — honest cardstock."}</p>
                 <HandNote className="mt-3 block text-xl leading-tight">“{selected.lore}”</HandNote>
-                {!ownedIds.has(selected.id) && <LockHint cardId={selected.id} />}
+                {!ownedIds.has(selected.id) ? (
+                  <CraftHint
+                    card={selected}
+                    slips={me?.slips ?? ZERO_SLIPS}
+                    onCrafted={(after) => {
+                      setMe((cur) => (cur ? { ...cur, slips: after, collection: cur.collection.map((c) => (c.id === selected.id ? { ...c, owned: true } : c)) } : cur));
+                    }}
+                  />
+                ) : null}
                 <div className="mt-4 flex justify-end">
                   <StampButton size="sm" onClick={() => setSelected(null)}>
                     Close
@@ -152,6 +162,71 @@ export default function CollectionPage() {
   );
 }
 
+function SlipsChip({ slips }: { slips: Slips }) {
+  const total = slips.common + slips.rare + slips.epic + slips.legendary;
+  return (
+    <span
+      className="label-type px-2 py-1 text-[9px]"
+      style={{ border: "1.5px solid var(--color-pencil)", borderRadius: "5px 3px 6px 4px / 4px 6px 3px 5px" }}
+      title="Duplicate slips per rarity — spend them to craft locked cards"
+    >
+      ♻ SLIPS · C {slips.common} · R {slips.rare} · E {slips.epic} · L {slips.legendary} {total === 0 && "(from pack duplicates)"}
+    </span>
+  );
+}
+
+function CraftHint({
+  card,
+  slips,
+  onCrafted,
+}: {
+  card: CardDef;
+  slips: Slips;
+  onCrafted: (after: Slips) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const have = slips[card.rarity];
+  const need = CRAFT_COST[card.rarity];
+  const affordable = have >= need;
+
+  const craft = async () => {
+    setBusy(true);
+    setError(null);
+    const after = await craftCard(card.id);
+    setBusy(false);
+    if (after) onCrafted(after);
+    else setError("the archivist declined — check your slips");
+  };
+
+  return (
+    <div className="mt-2">
+      <div className="label-type text-[10px] text-graphite">
+        ♻ INK RECYCLING — CRAFT WITH DUPLICATE SLIPS ({card.rarity.toUpperCase()})
+      </div>
+      <div className="mt-1 flex items-center gap-2">
+        <div className="h-2.5 flex-1 overflow-hidden" style={{ border: "1px solid var(--color-pencil)", borderRadius: 4 }}>
+          <div
+            style={{
+              width: `${Math.min(100, (have / need) * 100)}%`,
+              height: "100%",
+              background: "var(--color-ink)",
+            }}
+          />
+        </div>
+        <span className="label-type text-[10px]" style={{ color: affordable ? "var(--color-ink)" : "var(--color-graphite)" }}>
+          {Math.min(have, need)}/{need}
+        </span>
+        <StampButton size="sm" disabled={!affordable || busy} onClick={() => void craft()}>
+          {busy ? "…" : "Craft"}
+        </StampButton>
+      </div>
+      {error && <HandNote className="mt-1 block text-base">✎ {error}</HandNote>}
+      {!affordable && !error && <LockHint cardId={card.id} />}
+    </div>
+  );
+}
+
 function LockHint({ cardId }: { cardId: string }) {
   const hints: Record<string, string> = {
     the_living_manuscript: "Win 3 matches in a row (Hattrick in Ink).",
@@ -162,7 +237,7 @@ function LockHint({ cardId }: { cardId: string }) {
   if (ARCHIVE_SET_IDS.has(cardId)) {
     return (
       <HandNote className="mt-2 block text-lg">
-        unlock: tear it from a pack in the Ink Vault — or clear the campaign
+        unlock: tear it from a pack in the Ink Vault, clear the campaign — or craft it from duplicate slips
       </HandNote>
     );
   }
