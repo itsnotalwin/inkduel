@@ -76,3 +76,46 @@ Win % — rows beat columns:
 - `engine.test.ts`: Eraser Golem echo expectation 23 → 22 HP; Paper Storm
   survivor 2 → 3 HP; The Archivist refill target 8 → 6.
 - `scripts/simulate.ts` telemetry tag updated to post-patch-1.1.
+
+## Bot decks embrace the Archive Set (ROADMAP §4)
+
+The ladder bots now play their own deck lists (`BOT_ARCHETYPE_DECKS` in
+`src/game/cards.ts`) instead of reusing `ARCHETYPE_DECKS` — the player starter
+decks. Two reasons: bot tuning no longer rewrites what a new player opens
+with, and bots can use Archive Set cards that aren't default-owned. The
+Gambler keeps its random deck.
+
+New archetypes:
+
+- **The Duelist — "First Edition Blitz"**: no legendaries, all gas.
+  Doodled Knight / Smudge Sprite opens, Razor Fold and Paper Dragon as swift
+  clocks, Ink Drop + Red Letter Day + Final Notice for 18 face damage from
+  hand, Brainstorm / Muse of Margins for fuel.
+- **The Archivist — "Scribble Swarm"**: the roadmap's example made real.
+  Paper Dolls and Sticker Swarm flood Scribble tokens behind Correction Tape
+  / Binder Golem / Accordion File guards; Erase and Redraw and Mimeograph
+  Mage supply the value.
+- **The Collector — "The Folio Engine"**: the previously hopeless archetype
+  rebuilt as an insight/value engine (Clipboard Clerk, Carbon Copy, Muse of
+  Margins, Origami Owl, The Collected Works) with real interaction — Paper
+  Trail sweeps the Blitz's 1–2 HP board, Pressure Stamp answers anything —
+  and a fast mulligan (keepCost 3, was 4).
+
+Collector mulligan policy: `keepCost` is now per-archetype (archivist 4,
+others 3).
+
+### Before / after (50 games per cell, `scripts/balance-matrix.ts`)
+
+Win % — rows beat columns, after patch 1.1 → after the Archive Set decks:
+
+| row \ col | duelist | gambler | collector | archivist |
+| --- | --- | --- | --- | --- |
+| duelist | — | 60→66% | 96→92% | 26→48% |
+| gambler | 62→66% | — | 74→72% | 14→68% |
+| collector | 32→54% | 74→58% | — | 30→58% |
+| archivist | 98→82% | 92→56% | 98→78% | — |
+
+The matrix is now a healthy rock-paper-scissors triangle — Archivist beats
+Duelist (82%), Duelist beats Collector (92%), Collector beats Archivist
+(58%) — with no 0/N cells and the Gambler live everywhere. Campaign smoke
+stays green (early 76% / late 61%, hardest stage 23%, zero illegal actions).

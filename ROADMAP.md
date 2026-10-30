@@ -118,9 +118,12 @@ features. Work top-down; each item is small and lands immediately.
       stats in `CHANGELOG.md`. First target fixed: Duelist vs Archivist
       0/50 → 22–26%, matrix has no 0/N cells, campaign smoke greener than
       before (early 74% / late 62%, hardest stage 30%).
-- [ ] **Bot decks embrace the Archive Set** — the Duelist/Collector/Archivist
-      scripted decks predate waves 2–3; build one new archetype per bot
-      (e.g. Archivist runs Scribble swarm + Accordion File value).
+- [x] **Bot decks embrace the Archive Set** — shipped: bots play their own
+      `BOT_ARCHETYPE_DECKS` (decoupled from player starters) — "First Edition
+      Blitz", "Scribble Swarm" (the example from this item), and "The Folio
+      Engine". Matrix flipped from Archivist-dominant (94–100%) to a
+      rock-paper-scissors spread; Collector went from punching bag (14%) to
+      54–58% vs everyone. Stats in `CHANGELOG.md`.
 - [ ] **Deck builder QoL** — card search inside the builder, auto-fill
       remaining slots with the curve, mana-curve hover shows card names.
 - [ ] **Campaign act 2** — stages 13–20 introducing wave-3 cards as enemy

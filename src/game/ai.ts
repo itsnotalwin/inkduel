@@ -4,7 +4,7 @@
  * the UI paces the loop (~700ms) so plays read clearly.
  */
 import { applyAction, createGame, getLegalActions, type Action, type GameState, type Target } from "./engine";
-import { ARCHETYPE_DECKS, getCard } from "./cards";
+import { ARCHETYPE_DECKS, BOT_ARCHETYPE_DECKS, getCard } from "./cards";
 import { randomDeck, expandDeck, type DeckEntry } from "./decks";
 
 export type PolicyKey = "duelist" | "gambler" | "collector" | "archivist";
@@ -44,7 +44,7 @@ export function pickBot(playerMmr: number, window = 80, rand = Math.random): Bot
 
 export function botDeck(policy: PolicyKey, seed: number): DeckEntry[] {
   if (policy === "gambler") return randomDeck(seed);
-  return ARCHETYPE_DECKS[policy].cards.map(([cardId, count]) => ({ cardId, count } as DeckEntry));
+  return BOT_ARCHETYPE_DECKS[policy].cards.map(([cardId, count]) => ({ cardId, count } as DeckEntry));
 }
 
 export function botDeckIds(policy: PolicyKey, seed: number): string[] {
@@ -70,8 +70,8 @@ function aiRng(s: GameState): () => number {
 export function mulliganAction(s: GameState, side: "A" | "B", policy: PolicyKey): Action {
   const hand = s.players[side].hand;
   const rand = aiRng(s);
-  const keepCost = policy === "duelist" ? 3 : 4;
-  const uids = hand
+  // control policies can keep a slow hand; aggressive ones want the cheap opens
+  const keepCost = policy === "archivist" ? 4 : 3;  const uids = hand
     .filter((c) => {
       const def = getCard(c.cardId);
       if (c.cardId === "tempo_token") return false;

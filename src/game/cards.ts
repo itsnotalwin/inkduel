@@ -231,6 +231,38 @@ export const ARCHETYPE_DECKS: Record<string, { name: string; cards: [string, num
   },
 };
 
+/**
+ * Bot-only decks (ladder opponents) — deliberately distinct from the player
+ * starters above so bot tuning never rewrites what a new player opens with,
+ * and so the bots can use Archive Set cards that aren't default-owned.
+ */
+export const BOT_ARCHETYPE_DECKS: Record<string, { name: string; cards: [string, number][] }> = {
+  duelist: {
+    name: "First Edition Blitz",
+    cards: [
+      ["doodled_knight", 2], ["smudge_sprite", 2], ["ink_drop", 2], ["origami_crane", 2],
+      ["brainstorm", 2], ["muse_of_margins", 2], ["razor_fold", 2],
+      ["red_letter_day", 2], ["paper_trail", 2], ["paper_dragon", 1], ["final_notice", 1],
+    ],
+  },
+  archivist: {
+    name: "Scribble Swarm",
+    cards: [
+      ["sticky_situation", 2], ["correction_tape", 2], ["carbon_copy", 2], ["paper_dolls", 2],
+      ["binder_golem", 2], ["sticker_swarm", 2], ["brainstorm", 2],
+      ["erase_and_redraw", 2], ["thumbtack_titan", 1], ["accordion_file", 2], ["mimeograph_mage", 1],
+    ],
+  },
+  collector: {
+    name: "The Folio Engine",
+    cards: [
+      ["apprentice_scribe", 2], ["paper_trail", 2], ["clipboard_clerk", 2], ["carbon_copy", 2],
+      ["muse_of_margins", 2], ["pressure_stamp", 2], ["origami_owl", 2], ["blot_monster", 2],
+      ["glue_gun_gunner", 2], ["mimeograph_mage", 1], ["the_collected_works", 1],
+    ],
+  },
+};
+
 /** Effects that require the player (or AI) to choose a target when played. */
 export function needsTarget(card: CardDef): boolean {
   const effects = [...(card.onPlay ?? []), ...(card.echo ?? [])];
