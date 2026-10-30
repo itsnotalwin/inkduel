@@ -270,8 +270,8 @@ describe("The Grand Palimpsest", () => {
     s.players.B.board = [];
     s.players.A.hand = [{ uid: "h1", cardId: "the_grand_palimpsest" }];
     s = applyAction(s, { type: "PLAY_CARD", side: "A", uid: "h1" });
-    // eraser golem's Echo: restore 3 HP to your hero
-    expect(s.players.A.heroHp).toBe(23);
+    // eraser golem's Echo: restore 2 HP to your hero
+    expect(s.players.A.heroHp).toBe(22);
     expect(s.players.A.board.some((u) => u.cardId === "ghost_text")).toBe(true);
   });
 });
@@ -308,17 +308,17 @@ describe("spells", () => {
     s.players.A.hand = [{ uid: "h1", cardId: "paper_storm" }];
     s = applyAction(s, { type: "PLAY_CARD", side: "A", uid: "h1" });
     expect(s.players.A.board[0].health).toBe(2);
-    expect(s.players.B.board).toHaveLength(1); // the 5/5 survives at 2
-    expect(s.players.B.board[0].health).toBe(2);
+    expect(s.players.B.board).toHaveLength(1); // the 5/5 survives at 3
+    expect(s.players.B.board[0].health).toBe(3);
   });
 
-  it("The Archivist draws until 8 in hand", () => {
+  it("The Archivist draws until 6 in hand", () => {
     let s = startGame(29);
     s.players.A.mana = 10;
     s.players.A.hand = [{ uid: "h1", cardId: "the_archivist" }];
     s = applyAction(s, { type: "PLAY_CARD", side: "A", uid: "h1" });
-    expect(s.players.A.hand.length).toBeLessThanOrEqual(8);
-    expect(s.players.A.hand.length).toBe(8);
+    expect(s.players.A.hand.length).toBeLessThanOrEqual(6);
+    expect(s.players.A.hand.length).toBe(6);
   });
 });
 

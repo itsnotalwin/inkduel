@@ -51,7 +51,7 @@ const C = (o: CardDef) => o;
 export const CARDS: CardDef[] = [
   // ── Units ────────────────────────────────────────────────────
   C({ id: "ink_blot", name: "Ink Blot", type: "unit", cost: 1, attack: 1, health: 2, rarity: "common", text: "", lore: "It was an accident. Now it has opinions." }),
-  C({ id: "paper_swan", name: "Paper Swan", type: "unit", cost: 1, attack: 1, health: 1, rarity: "common", keywords: ["swift"], text: "Swift", lore: "One fold for the wing. One for the grudge." }),
+  C({ id: "paper_swan", name: "Paper Swan", type: "unit", cost: 1, attack: 2, health: 1, rarity: "common", keywords: ["swift"], text: "Swift", lore: "One fold for the wing. One for the grudge." }),
   C({ id: "apprentice_scribe", name: "Apprentice Scribe", type: "unit", cost: 1, attack: 1, health: 2, rarity: "rare", keywords: ["insight"], text: "Insight", lore: "Copies everything, understands nothing. Yet." }),
   C({ id: "origami_crane", name: "Origami Crane", type: "unit", cost: 2, attack: 2, health: 1, rarity: "common", keywords: ["swift"], text: "Swift", lore: "A thousand of these grant a wish. This one grants damage." }),
   C({ id: "graphite_golem", name: "Graphite Golem", type: "unit", cost: 2, attack: 2, health: 3, rarity: "common", text: "", lore: "Drawn too many times. Eventually it stood up." }),
@@ -60,9 +60,9 @@ export const CARDS: CardDef[] = [
   C({ id: "quill_sergeant", name: "Quill Sergeant", type: "unit", cost: 2, attack: 2, health: 2, rarity: "rare", text: "On play: give adjacent friendly units +1/+0", lore: "Barks orders in perfect cursive.", onPlay: [{ kind: "BUFF", atk: 1, target: "adjacentFriendly" }] }),
   C({ id: "fountain_pen_fencer", name: "Fountain Pen Fencer", type: "unit", cost: 3, attack: 3, health: 2, rarity: "rare", keywords: ["swift"], text: "Swift", lore: "The nib is mightier. Obviously." }),
   C({ id: "papercraft_colossus", name: "Papercraft Colossus", type: "unit", cost: 3, attack: 2, health: 5, rarity: "common", keywords: ["guard"], text: "Guard", lore: "Folded from the recycling. Remembers being important." }),
-  C({ id: "eraser_golem", name: "Eraser Golem", type: "unit", cost: 3, attack: 3, health: 3, rarity: "rare", text: "Echo: restore 3 HP to your hero", lore: "It undoes. That is its whole personality.", echo: [{ kind: "HEAL_HERO", n: 3 }] }),
+  C({ id: "eraser_golem", name: "Eraser Golem", type: "unit", cost: 3, attack: 3, health: 3, rarity: "rare", text: "Echo: restore 2 HP to your hero", lore: "It undoes. That is its whole personality.", echo: [{ kind: "HEAL_HERO", n: 2 }] }),
   C({ id: "stencil_archer", name: "Stencil Archer", type: "unit", cost: 3, attack: 2, health: 3, rarity: "rare", text: "On play: deal 1 damage to any target", lore: "Aims by template. Never misses the outline.", onPlay: [{ kind: "DEAL_DAMAGE", n: 1, target: "any" }] }),
-  C({ id: "blotting_wall", name: "Blotting Wall", type: "unit", cost: 4, attack: 3, health: 6, rarity: "common", keywords: ["guard"], text: "Guard", lore: "Soaks up everything. Absorbs the complaints, too." }),
+  C({ id: "blotting_wall", name: "Blotting Wall", type: "unit", cost: 4, attack: 3, health: 5, rarity: "common", keywords: ["guard"], text: "Guard", lore: "Soaks up everything. Absorbs the complaints, too." }),
   C({ id: "ink_mage", name: "Ink Mage", type: "unit", cost: 4, attack: 3, health: 3, rarity: "epic", text: "On play: deal 2 damage to all enemy units", lore: "Spills on purpose. Calls it weather.", onPlay: [{ kind: "DEAL_DAMAGE", n: 2, target: "allEnemyUnits" }] }),
   C({ id: "the_calligrapher", name: "The Calligrapher", type: "unit", cost: 4, attack: 2, health: 4, rarity: "epic", text: "On play: draw 2 cards", lore: "Every letter a lesson. Every lesson, a card.", onPlay: [{ kind: "DRAW", n: 2 }] }),
   C({ id: "comic_relief", name: "Comic Relief", type: "unit", cost: 4, attack: 4, health: 2, rarity: "epic", keywords: ["twinstrike"], text: "Twinstrike", lore: "Hits twice. Laughs thrice." }),
@@ -73,7 +73,7 @@ export const CARDS: CardDef[] = [
   C({ id: "stationery_titan", name: "Stationery Titan", type: "unit", cost: 6, attack: 5, health: 7, rarity: "rare", keywords: ["guard"], text: "Guard", lore: "The supply closet finally fought back." }),
   C({ id: "the_living_manuscript", name: "The Living Manuscript", type: "unit", cost: 7, attack: 7, health: 7, rarity: "legendary", text: "Echo: draw 2 cards", lore: "It edits itself while you read it.", echo: [{ kind: "DRAW", n: 2 }] }),
   C({ id: "the_grand_palimpsest", name: "The Grand Palimpsest", type: "unit", cost: 8, attack: 6, health: 8, rarity: "legendary", text: "On play: destroy all other units; summon a 1/1 Ghost Text for each destroyed", lore: "Every page was written over. Nothing was ever lost.", onPlay: [{ kind: "DESTROY", target: "allOtherUnits" }, { kind: "SUMMON", token: "ghost_text", count: "perDestroyed" }] }),
-  C({ id: "the_archivist", name: "The Archivist", type: "unit", cost: 9, attack: 7, health: 9, rarity: "legendary", text: "On play: draw cards until you have 8 in hand", lore: "Knows where everything is. Including you.", onPlay: [{ kind: "DRAW_UNTIL", handSize: 8 }] }),
+  C({ id: "the_archivist", name: "The Archivist", type: "unit", cost: 9, attack: 7, health: 9, rarity: "legendary", text: "On play: draw cards until you have 6 in hand", lore: "Knows where everything is. Including you.", onPlay: [{ kind: "DRAW_UNTIL", handSize: 6 }] }),
   C({ id: "the_unwritten", name: "The Unwritten", type: "unit", cost: 10, attack: 10, health: 10, rarity: "legendary", keywords: ["swift", "twinstrike"], text: "Swift, Twinstrike", lore: "The blank page at the end of every book." }),
 
   // ── Units — second wave ─────────────────────────────────────
@@ -141,16 +141,16 @@ export const CARDS: CardDef[] = [
   C({ id: "the_second_edition", name: "The Second Edition", type: "spell", cost: 9, rarity: "legendary", text: "Deal 5 damage to all enemy units; draw 3 cards; summon a 3/3 Ink Golem", lore: "Revised, expanded, devastating.", onPlay: [{ kind: "DEAL_DAMAGE", n: 5, target: "allEnemyUnits" }, { kind: "DRAW", n: 3 }, { kind: "SUMMON", token: "ink_golem", count: 1 }] }),
 
   // ── Spells ───────────────────────────────────────────────────
-  C({ id: "red_pen", name: "Red Pen", type: "spell", cost: 1, rarity: "common", text: "Deal 2 damage to a unit", lore: "The margin's sharpest critique.", onPlay: [{ kind: "DEAL_DAMAGE", n: 2, target: "unit" }] }),
-  C({ id: "crumpled_note", name: "Crumpled Note", type: "spell", cost: 1, rarity: "common", text: "Deal 1 damage to all enemy units", lore: "\"meet me behind the gym — NO ONE\"", onPlay: [{ kind: "DEAL_DAMAGE", n: 1, target: "allEnemyUnits" }] }),
+  C({ id: "red_pen", name: "Red Pen", type: "spell", cost: 1, rarity: "common", text: "Deal 2 damage to anything", lore: "The margin's sharpest critique.", onPlay: [{ kind: "DEAL_DAMAGE", n: 2, target: "any" }] }),
+  C({ id: "crumpled_note", name: "Crumpled Note", type: "spell", cost: 1, rarity: "common", text: "Deal 1 damage to all enemy units. Draw a card.", lore: "\"meet me behind the gym — NO ONE\"", onPlay: [{ kind: "DEAL_DAMAGE", n: 1, target: "allEnemyUnits" }, { kind: "DRAW", n: 1 }] }),
   C({ id: "fresh_ink", name: "Fresh Ink", type: "spell", cost: 2, rarity: "common", text: "Give a friendly unit +2/+2", lore: "Still wet. Still dangerous.", onPlay: [{ kind: "BUFF", atk: 2, hp: 2, target: "chosenFriendly" }] }),
-  C({ id: "blank_page", name: "Blank Page", type: "spell", cost: 2, rarity: "common", text: "Draw 2 cards", lore: "Potential, by the sheet.", onPlay: [{ kind: "DRAW", n: 2 }] }),
+  C({ id: "blank_page", name: "Blank Page", type: "spell", cost: 2, rarity: "common", text: "Draw 3 cards", lore: "Potential, by the sheet.", onPlay: [{ kind: "DRAW", n: 3 }] }),
   C({ id: "second_draft", name: "Second Draft", type: "spell", cost: 2, rarity: "rare", text: "Return a friendly unit to your hand", lore: "We don't talk about the first draft.", onPlay: [{ kind: "RETURN_TO_HAND", target: "chosenFriendly" }] }),
   C({ id: "paper_cut", name: "Paper Cut", type: "spell", cost: 2, rarity: "common", text: "Deal 3 damage to any target", lore: "Small paper. Personal paper.", onPlay: [{ kind: "DEAL_DAMAGE", n: 3, target: "any" }] }),
   C({ id: "sharpened_pencil", name: "Sharpened Pencil", type: "spell", cost: 2, rarity: "common", text: "Give a friendly unit +2/+0 and Swift", lore: "Point side out. Always point side out.", onPlay: [{ kind: "BUFF", atk: 2, target: "chosenFriendly", grantKeyword: "swift" }] }),
   C({ id: "lamination", name: "Lamination", type: "spell", cost: 3, rarity: "rare", text: "Give a friendly unit +0/+4 and Guard", lore: "Immortal. Also, shiny.", onPlay: [{ kind: "BUFF", hp: 4, target: "chosenFriendly", grantKeyword: "guard" }] }),
   C({ id: "pressure_stamp", name: "Pressure Stamp", type: "spell", cost: 3, rarity: "rare", text: "Deal 2 damage to any target; draw a card", lore: "APPROVED, with prejudice.", onPlay: [{ kind: "DEAL_DAMAGE", n: 2, target: "any" }, { kind: "DRAW", n: 1 }] }),
-  C({ id: "paper_storm", name: "Paper Storm", type: "spell", cost: 4, rarity: "epic", text: "Deal 3 damage to all enemy units", lore: "A stiff breeze with a grudge.", onPlay: [{ kind: "DEAL_DAMAGE", n: 3, target: "allEnemyUnits" }] }),
+  C({ id: "paper_storm", name: "Paper Storm", type: "spell", cost: 4, rarity: "epic", text: "Deal 2 damage to all enemy units", lore: "A stiff breeze with a grudge.", onPlay: [{ kind: "DEAL_DAMAGE", n: 2, target: "allEnemyUnits" }] }),
   C({ id: "editors_verdict", name: "Editor's Verdict", type: "spell", cost: 4, rarity: "rare", text: "Destroy any unit", lore: "This sentence deleted a column.", onPlay: [{ kind: "DESTROY", target: "unit" }] }),
   C({ id: "acceptance_stamp", name: "Acceptance Stamp", type: "spell", cost: 5, rarity: "rare", text: "Deal 5 damage to the enemy hero; your hero takes 2", lore: "The letter came. The letter cost.", onPlay: [{ kind: "DEAL_DAMAGE", n: 5, target: "enemyHero" }, { kind: "DEAL_DAMAGE", n: 2, target: "ownHero" }] }),
   C({ id: "the_final_draft", name: "The Final Draft", type: "spell", cost: 5, rarity: "epic", text: "Summon a 3/3 Ink Golem; draw a card", lore: "FINAL_final_v3_ACTUAL_FINAL.doc", onPlay: [{ kind: "SUMMON", token: "ink_golem", count: 1 }, { kind: "DRAW", n: 1 }] }),
@@ -205,18 +205,20 @@ export const ARCHETYPE_DECKS: Record<string, { name: string; cards: [string, num
   duelist: {
     name: "The Duelist's Rush",
     cards: [
-      ["paper_swan", 2], ["origami_crane", 2], ["inkwell_imp", 2], ["ink_blot", 2],
-      ["graphite_golem", 2], ["fountain_pen_fencer", 2], ["paper_dragon", 1],
-      ["red_pen", 2], ["paper_cut", 2], ["sharpened_pencil", 1], ["crumpled_note", 2],
+      ["paper_swan", 2], ["origami_crane", 2], ["inkwell_imp", 2], ["ink_blot", 1],
+      ["fountain_pen_fencer", 2], ["paper_dragon", 1],
+      ["red_pen", 2], ["paper_cut", 2], ["pressure_stamp", 2], ["crumpled_note", 2],
+      ["blank_page", 2],
     ],
   },
   archivist: {
     name: "The Archivist's Vault",
     cards: [
-      ["page_knight", 2], ["papercraft_colossus", 2], ["blotting_wall", 2], ["eraser_golem", 2],
+      ["page_knight", 1], ["papercraft_colossus", 2], ["blotting_wall", 2], ["eraser_golem", 2],
       ["stencil_archer", 1], ["stationery_titan", 2], ["the_living_manuscript", 1],
       ["the_grand_palimpsest", 1], ["the_archivist", 1], ["editors_verdict", 2],
-      ["paper_storm", 1], ["acceptance_stamp", 1], ["lamination", 1], ["second_draft", 1],
+      ["paper_storm", 1], ["acceptance_stamp", 1], ["comic_relief", 1],
+      ["graphite_golem", 2], ["fresh_ink", 2],
     ],
   },
   collector: {

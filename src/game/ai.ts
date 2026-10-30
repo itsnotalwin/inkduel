@@ -94,10 +94,10 @@ interface Weights {
 }
 
 const WEIGHTS: Record<PolicyKey, Weights> = {
-  duelist: { face: 3.2, unit: 0.7, enemyUnit: 1.0, hand: 0.5, boardCount: 0.4, heroHp: 1.0 },
+  duelist: { face: 4.0, unit: 0.7, enemyUnit: 1.0, hand: 0.5, boardCount: 0.4, heroHp: 0.8 },
   gambler: { face: 3.2, unit: 0.7, enemyUnit: 1.0, hand: 0.5, boardCount: 0.4, heroHp: 1.0 },
   collector: { face: 1.0, unit: 1.0, enemyUnit: 0.9, hand: 1.6, boardCount: 1.2, heroHp: 1.2 },
-  archivist: { face: 1.6, unit: 1.1, enemyUnit: 1.4, hand: 0.9, boardCount: 0.5, heroHp: 1.8 },
+  archivist: { face: 1.6, unit: 1.1, enemyUnit: 1.4, hand: 0.9, boardCount: 0.5, heroHp: 1.3 },
 };
 
 function unitValue(attack: number, health: number, keywords: string[]): number {

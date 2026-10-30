@@ -103,22 +103,21 @@ features. Work top-down; each item is small and lands immediately.
 - **localStorage ceiling** — replays + matches cap at 100 entries locally;
   long-term players on the paper edition will silently lose old tapes. Decide:
   raise the cap, compress, or accept.
-- **CONFIRMED: Duelist vs Archivist is lopsided (0/50)** — found by the
-  harness after the hero-target fix (paper_cut-to-face now works). The
-  Duelist empties its hand by turn 6–7 then fatigues, while the Archivist's
-  The Archivist refills to 8. Spec decks are verbatim, so the fix lands in
-  **balance patch 1.1** (§4): likely levers are the Archivist's evaluate
-  weights or a Duelist reach card. AI-vs-AI only — humans play differently.
+- **RESOLVED (balance patch 1.1): Duelist vs Archivist was 0/50** — the
+  fatigue-loss pattern from the hero-target fix. Fixed by eight card changes
+  plus two deck rebuilds (see `CHANGELOG.md`): the matchup is now 22–26% and
+  the matrix has no 0/N cells. Collector is now the weakest archetype —
+  addressed by the "Bot decks embrace the Archive Set" item below.
 
 ---
 
 ## 4. Phase 1 — Balance & feel (next 2–4 weeks)
 
-- [ ] **Balance patch 1.1** — using playtest + telemetry: adjust 3–5 cards,
-      document every change in a `CHANGELOG.md` with before/after stats.
-      **First target confirmed by harness:** Duelist 0/50 vs Archivist
-      (fatigue-loss pattern) — candidate levers: Archivist AI weights
-      (w.face/w.heroHp) or a Duelist reach/draw adjustment.
+- [x] **Balance patch 1.1** — shipped: 8 card changes, 2 archetype deck
+      rebuilds, 2 AI weight tweaks; every change documented with before/after
+      stats in `CHANGELOG.md`. First target fixed: Duelist vs Archivist
+      0/50 → 22–26%, matrix has no 0/N cells, campaign smoke greener than
+      before (early 74% / late 62%, hardest stage 30%).
 - [ ] **Bot decks embrace the Archive Set** — the Duelist/Collector/Archivist
       scripted decks predate waves 2–3; build one new archetype per bot
       (e.g. Archivist runs Scribble swarm + Accordion File value).
