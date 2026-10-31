@@ -218,7 +218,8 @@ export default function DuelClient() {
             const pulled = getCard(e.cardId);
             if (pulled.rarity === "legendary") {
               next.flourish = { id: animId++, cardId: e.cardId, side: e.side };
-              sound.stampThunk();
+              // signature motif, hashed from the card id — each legendary sounds like itself
+              sound.legendaryMotif(e.cardId);
               window.setTimeout(() => setAnim((cur) => ({ ...cur, flourish: null })), 2000);
             }
             break;
@@ -321,6 +322,9 @@ export default function DuelClient() {
     else if (state.phase === "GAME_OVER") ambient.setPhase("over");
     else if (hotseat || state.current === viewerSideOf(hotseat, state)) ambient.setPhase("player");
     else ambient.setPhase("opponent");
+    // board density feeds the bed — ten slots total; empty boards settle it back to rest
+    const alive = state.players.A.board.length + state.players.B.board.length;
+    ambient.setIntensity(state.phase === "TURN" ? alive / 10 : 0);
   }, [state, hotseat]);
 
   useEffect(() => {
@@ -336,8 +340,8 @@ export default function DuelClient() {
       const r = state.winner === "A" ? "WIN" : state.winner === "B" ? "LOSS" : "DRAW";
       // eslint-disable-next-line react-hooks/set-state-in-effect -- friendly duels resolve without a server round-trip
       setResult({ result: r, mmrBefore: 0, mmrAfter: 0 });
-      if (r !== "DRAW") sound.victoryDing();
-      else sound.defeatNote();
+      if (r !== "DRAW") sound.victoryDing(state.seed);
+      else sound.defeatNote(state.seed);
       return;
     }
     const stageParam = searchParams.get("campaign");
@@ -347,8 +351,8 @@ export default function DuelClient() {
       void (async () => {
         const res = await completeCampaignStage(campaignIdx, r);
         if (res) setResult({ result: r, mmrBefore: 0, mmrAfter: 0, campaign: res });
-        if (r === "WIN") sound.victoryDing();
-        else sound.defeatNote();
+        if (r === "WIN") sound.victoryDing(state.seed);
+        else sound.defeatNote(state.seed);
       })();
       return;
     }
@@ -383,8 +387,8 @@ export default function DuelClient() {
         if (typeof window !== "undefined") window.localStorage.setItem("inkduel:mmr", String(newMmr));
         setResult({ result: r, mmrBefore, mmrAfter: newMmr });
       }
-      if (r === "WIN") sound.victoryDing();
-      else if (r === "LOSS") sound.defeatNote();
+      if (r === "WIN") sound.victoryDing(state.seed);
+      else if (r === "LOSS") sound.defeatNote(state.seed);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-arms only on a finished game; searchParams changes restart the match instead
   }, [state, bot, result, hotseat]);

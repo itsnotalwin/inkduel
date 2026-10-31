@@ -1,7 +1,8 @@
 /**
  * Procedural ambient soundscape — a paper-noise floor plus a low ink-drone
- * whose brightness tracks the game phase. Zero audio assets. Starts on the
- * first user gesture (browser autoplay policy); the global mute silences it.
+ * whose brightness tracks the game phase and the units alive on the board.
+ * Zero audio assets. Starts on the first user gesture (browser autoplay
+ * policy); the global mute silences it.
  */
 
 export type AmbientPhase = "mulligan" | "player" | "opponent" | "over";
@@ -23,6 +24,8 @@ class AmbientEngine {
   private lfo: OscillatorNode | null = null;
   private started = false;
   private _muted = false;
+  private phase: AmbientPhase = "mulligan";
+  private intensity = 0;
 
   get running() {
     return this.started;
@@ -85,16 +88,32 @@ class AmbientEngine {
     this.lfo.start();
 
     this.started = true;
+    this.apply();
   }
 
   /** Morph the bed toward the new phase (slow ramps — no clicks). */
   setPhase(phase: AmbientPhase) {
+    this.phase = phase;
+    this.apply();
+  }
+
+  /** Board density 0..1 — nudges the bed brighter and denser as more units stand alive. */
+  setIntensity(x: number) {
+    const next = Math.min(1, Math.max(0, x));
+    if (next === this.intensity) return;
+    this.intensity = next;
+    this.apply();
+  }
+
+  /** Push the current phase + intensity into the nodes (slow ramps, never clicks). */
+  private apply() {
     if (!this.started || !this.ctx || !this.noiseFilter || !this.noiseGain || !this.droneGain) return;
     const t = this.ctx.currentTime;
-    const s = PHASE_SETTINGS[phase];
-    this.noiseFilter.frequency.setTargetAtTime(s.cutoff, t, 1.2);
-    this.noiseGain.gain.setTargetAtTime(s.noise, t, 1.2);
-    this.droneGain.gain.setTargetAtTime(s.drone, t, 1.6);
+    const s = PHASE_SETTINGS[this.phase];
+    // intensity broadens the bed by up to ~half — a feel change, not a spotlight
+    this.noiseFilter.frequency.setTargetAtTime(s.cutoff * (1 + 0.5 * this.intensity), t, 1.2);
+    this.noiseGain.gain.setTargetAtTime(s.noise * (1 + 0.3 * this.intensity), t, 1.2);
+    this.droneGain.gain.setTargetAtTime(s.drone * (1 + 0.35 * this.intensity), t, 1.6);
   }
 
   /** A short swell when the match ends. */
