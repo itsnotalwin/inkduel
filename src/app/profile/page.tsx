@@ -23,6 +23,7 @@ interface MeData {
   name: string;
   mmr: number;
   rank: { key: string; name: string; min: number };
+  season?: { current: number; label: string; payout: number; justReset: boolean };
   wins: number;
   losses: number;
   draws: number;
@@ -107,6 +108,15 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center gap-2">
               <RankBadge rank={RANK_KEY_BY_NAME[me.rank.name] ?? "wood"} size={72} />
               <Stamp className="text-xs">{me.rank.name}</Stamp>
+              {me.season && (
+                <span
+                  className="label-type px-2 py-1 text-[9px]"
+                  style={{ border: "1.5px solid var(--color-pencil)", borderRadius: "5px 3px 6px 4px / 4px 6px 3px 5px" }}
+                  title={me.season.justReset ? `Season rollover — ${me.season.payout} ink payout, soft MMR reset` : "current season"}
+                >
+                  {me.season.label.toUpperCase()}
+                </span>
+              )}
             </div>
             <Panel className="p-6">
               <div className="small-caps text-3xl font-bold">{me.name}</div>

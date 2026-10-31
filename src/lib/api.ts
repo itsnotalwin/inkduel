@@ -15,6 +15,7 @@ import { ownedCardIds } from "@/lib/collection";
 import { eloDelta, type MatchResult } from "@/lib/elo";
 import { questForDate, todayKey, QUEST_TEMPLATES } from "@/lib/quests";
 import { ARCHETYPE_DECKS, COLLECTIBLE_CARDS, computeSetCompletion, getCard, pendingSetRewards, SET_COMPLETE_REWARD } from "@/game/cards";
+import { applySeasonRollover, currentSeason, seasonLabel } from "@/lib/season";
 import { randomDeck } from "@/game/decks";
 import { CAMPAIGN_STAGES } from "@/game/campaign";
 import { PACK_COST, PACK_PREMIUM_COST, rollPack, slipsFromDuplicates, addSlips, canCraft, spendSlips, ZERO_SLIPS, type PackFloor, type PackType, type Slips } from "@/game/packs";
@@ -102,6 +103,8 @@ export interface MeProfile {
   coins: number;
   /** Ink Recycling progress: duplicate slips per rarity. */
   slips: Slips;
+  /** Seasonal ladder ("Issues"): current issue + any rollover that fired on this read. */
+  season: { current: number; label: string; payout: number; justReset: boolean };
   /** Per-set owned/total + one-time completion rewards. */
   setCompletion: {
     key: string;
@@ -479,28 +482,42 @@ function localMe(): MeProfile {
   const total = matches.length;
   const extras = read<string[]>("inkduel:extraCards", []);
   const owned = ownedCardIds([...held], extras);
+  // seasonal ladder: lazy rollover — soft MMR reset + rank payout once per Issue
+  const rollover = applySeasonRollover(
+    { seasonSeen: read<number>("inkduel:seasonSeen", 0), mmr: profile.mmr, coins: profile.coins, matchesPlayed: total },
+    currentSeason(),
+  );
+  let coins = profile.coins;
+  let currentMmr = profile.mmr;
+  if (rollover.applied) {
+    currentMmr = rollover.mmr;
+    coins += rollover.payout;
+    const updated: LocalProfile = { ...profile, coins, mmr: currentMmr };
+    write(PROFILE_KEY, updated);
+    write("inkduel:seasonSeen", rollover.season);
+  }
   // set completion + one-time ink payouts (lazy grant, idempotent)
   const claimed = new Set(read<string[]>("inkduel:setRewards", []));
   const setCompletion = computeSetCompletion(owned, claimed);
   const newlyClaimed = pendingSetRewards(setCompletion);
-  let coins = profile.coins;
   if (newlyClaimed.length > 0) {
     for (const key of newlyClaimed) claimed.add(key);
     coins += newlyClaimed.reduce((n, key) => n + (SET_COMPLETE_REWARD[key] ?? 0), 0);
     write("inkduel:setRewards", [...claimed]);
-    const updated: LocalProfile = { ...profile, coins };
+    const updated: LocalProfile = { ...profile, coins, mmr: currentMmr };
     write(PROFILE_KEY, updated);
   }
   return {
     id: "local",
     name: profile.name,
-    mmr: profile.mmr,
+    mmr: currentMmr,
     coins,
+    season: { current: rollover.season, label: seasonLabel(rollover.season), payout: rollover.payout, justReset: rollover.applied && rollover.payout > 0 },
     setCompletion,
     slips: localSlips(),
     campaignStage: read<number>("inkduel:campaignStage", 0),
     campaignTotal: CAMPAIGN_STAGES.length,
-    rank: { key: "local", name: rankNameFor(profile.mmr), min: 0 },
+    rank: { key: "local", name: rankNameFor(currentMmr), min: 0 },
     wins: profile.wins,
     losses: profile.losses,
     draws: profile.draws,

@@ -46,6 +46,7 @@ import { GET as questsGet } from "@/app/api/quests/today/route";
 import { GET as analyticsGet } from "@/app/api/analytics/meta/route";
 import { prisma } from "@/lib/db";
 import { SESSION_COOKIE } from "@/lib/session";
+import { currentSeason, seasonPayout } from "@/lib/season";
 import { ownedCardIds } from "@/lib/collection";
 import { BOT_BY_KEY } from "@/game/ai";
 import { mulberry32 } from "@/game/decks";
@@ -498,6 +499,31 @@ describe("card set completion rewards", () => {
   });
 });
 
+describe("seasonal ladder rollover", () => {
+  it("pays out and soft-resets once per issue", async () => {
+    const mainToken = jar.get(SESSION_COOKIE)!;
+    jar.clear();
+    await expectOk(guestPost(post("/api/auth/guest", { name: "Ladder Vet" })));
+    // a veteran mid-issue: gold rank, several matches, current season already seen
+    const player = await prisma.player.findFirst({ where: { sessionToken: jar.get(SESSION_COOKIE)! } });
+    expect(player).toBeTruthy();
+    const season = currentSeason();
+    await prisma.player.update({
+      where: { id: player!.id },
+      data: { mmr: 1400, wins: 4, losses: 2, draws: 0, seasonSeen: season - 1 },
+    });
+    const me1 = await expectOk(meGet());
+    expect(me1.mmr).toBe(1200); // soft reset: halfway back to baseline
+    expect(me1.coins).toBe(150 + seasonPayout("gold"));
+    expect((me1.season as { payout: number }).payout).toBe(seasonPayout("gold"));
+    // second read in the same issue: nothing further
+    const me2 = await expectOk(meGet());
+    expect(me2.mmr).toBe(1200);
+    expect(me2.coins).toBe(me1.coins);
+    jar.set(SESSION_COOKIE, mainToken);
+  });
+});
+
 describe("ink ledger fuzz", () => {
   // 48 ops × several DB round-trips each — needs more than the 5s default on
   // slow filesystems when the suite runs in parallel
@@ -507,6 +533,10 @@ describe("ink ledger fuzz", () => {
     const g = await expectOk(guestPost(post("/api/auth/guest", { name: "Ledger Fuzzer" })));
     let expected = g.coins as number;
     let progress = 0;
+    // mark the season current before any match exists — otherwise the first
+    // profile read after a match would fire the Issue rollover payout
+    const me0 = await expectOk(meGet());
+    expect(me0.coins).toBe(expected);
 
     const rand = mulberry32(20261030);
     const outcomes = ["WIN", "DRAW", "LOSS"] as const;

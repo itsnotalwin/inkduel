@@ -9,6 +9,7 @@ import {
   type PackCard,
 } from "@/game/packs";
 import { COLLECTIBLE_CARDS, COLLECTIBLE_SETS, computeSetCompletion, pendingSetRewards } from "@/game/cards";
+import { applySeasonRollover, currentSeason, seasonLabel, seasonPayout, seasonResetMmr } from "@/lib/season";
 
 function card(cardId: string, isNew: boolean): PackCard {
   return { cardId, isNew, refund: isNew ? 0 : 20 };
@@ -72,5 +73,48 @@ describe("card set completion", () => {
     expect(pendingSetRewards(completion)).toEqual([]);
     expect(completion[0]!.complete).toBe(true);
     expect(completion[0]!.rewardClaimed).toBe(true);
+  });
+});
+
+describe("seasonal ladder", () => {
+  it("labels issues in calendar order", () => {
+    expect(currentSeason(new Date("2026-01-15"))).toBe(0);
+    expect(currentSeason(new Date("2026-02-01"))).toBe(1);
+    expect(currentSeason(new Date("2027-01-01"))).toBe(12);
+    expect(seasonLabel(0)).toBe("Issue 1");
+    expect(seasonLabel(11)).toBe("Issue 12");
+  });
+
+  it("soft-resets MMR halfway to baseline, never below 1000", () => {
+    expect(seasonResetMmr(1400)).toBe(1200);
+    expect(seasonResetMmr(2000)).toBe(1500);
+    expect(seasonResetMmr(1000)).toBe(1000);
+    expect(seasonResetMmr(950)).toBe(1000);
+    expect(seasonResetMmr(980)).toBe(1000);
+  });
+
+  it("pays more for higher ranks", () => {
+    const ladder = seasonPayout("wood");
+    for (const key of ["bronze", "silver", "gold", "platinum", "obsidian", "ink-master"] as const) {
+      expect(seasonPayout(key)).toBeGreaterThan(ladder);
+    }
+    expect(seasonPayout("ink-master")).toBeGreaterThan(seasonPayout("bronze"));
+  });
+
+  it("rolls over exactly once and only pays players who played", () => {
+    const season = currentSeason();
+    // active player: payout + reset, applied once
+    const active = { seasonSeen: season - 1, mmr: 1400, coins: 100, matchesPlayed: 10 };
+    const fired = applySeasonRollover(active, season);
+    expect(fired.applied).toBe(true);
+    expect(fired.payout).toBe(seasonPayout("gold"));
+    expect(fired.mmr).toBe(1200);
+    // same season again: nothing
+    expect(applySeasonRollover({ ...active, seasonSeen: season }, season).applied).toBe(false);
+    // never played: marked current, no payout, no reset
+    const fresh = applySeasonRollover({ seasonSeen: season - 1, mmr: 1000, coins: 150, matchesPlayed: 0 }, season);
+    expect(fresh.applied).toBe(true);
+    expect(fresh.payout).toBe(0);
+    expect(fresh.mmr).toBe(1000);
   });
 });
