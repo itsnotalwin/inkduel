@@ -142,17 +142,28 @@ features. Work top-down; each item is small and lands immediately.
 
 ## 5. Phase 2 — Depth (1–2 months)
 
-- [ ] **Duplicate crafting ("Ink Recycling")** — duplicates beyond refunds
-      accumulate toward a chosen card of the same rarity; gives long-term
-      players agency.
-- [ ] **Deck sharing** — export/import a deck code (base64 of the card list)
-      with a share page; works on the paper edition via URL.
-- [ ] **Seasonal ladder** — soft MMR reset each "issue" (monthly), season
-      badge on the profile, end-of-season ink payout by rank.
-- [ ] **More packs** — a second pack type (e.g. "Collected Works pack":
-      guaranteed epic+ but 150 ink) to diversify the economy.
-- [ ] **Card set pages** — the collection gains set filters and a completion
-      percentage per wave; completion rewards ink.
+- [x] **Duplicate crafting ("Ink Recycling")** — shipped: every pack duplicate
+      grants a slip of its rarity (2/3/4/5 to craft common→legendary);
+      `/api/craft` spends slips on any unowned collectible; the collection
+      modal shows the progress bar + Craft button and the filter bar a live
+      slips purse. Works identically on the paper edition. Contract-tested.
+- [x] **Deck sharing** — shipped: readable share codes (`cardId.count;…`),
+      a Share button on every folio, and a `/decks/share` page that renders
+      any code and imports it as a new folio (ownership still enforced on
+      import). Codec is URL-safe by construction and round-trip tested.
+- [x] **Seasonal ladder** — shipped: monthly "Issues" with a lazy rollover —
+      soft MMR reset halfway to baseline, an ink payout by final rank
+      (50→750), and an Issue badge on the profile. Pure logic in
+      `src/lib/season.ts`, applied idempotently wherever a profile is read;
+      no cron. Both editions.
+- [x] **More packs** — shipped: the Collected Works pack (150 ink) with a
+      guaranteed epic+ floor, selected via a toggle in the Ink Vault;
+      server-authoritative like the standard pack. Floor tested over 300
+      seeded packs.
+- [x] **Card set pages** — shipped: the collection gains clickable set chips
+      (First Edition / The Archive Set) with live completion counts, and
+      completing a set pays a one-time ink reward (300 / 500) claimed lazily
+      and exactly once. Both editions.
 - [ ] **Sound set 2** — per-card play sounds for legendaries, win/lose stings
       variation, ambient intensity tied to board state (units alive).
 

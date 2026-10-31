@@ -136,3 +136,47 @@ data instead of the hardcoded "12".
 - Smoke-verified over 600 games: every stage winnable by the proxy (final
   boss 23%), difficulty escalates (early 76% vs late 69%), zero illegal
   actions.
+
+## Phase 2 — Depth
+
+### Ink Recycling (duplicate crafting)
+
+Every duplicate pulled from a pack now also grants one **slip** of its
+rarity. Slips craft any unowned collectible: 2 duplicates for a common,
+3 rare, 4 epic, 5 legendary. The collection modal shows a progress bar and a
+Craft button per locked card; the filter bar shows the live slips purse
+(♻ C/R/E/L). Server-authoritative via `/api/craft`; the paper edition keeps
+the same economy in localStorage. The `/api/packs` response now carries
+`slipsEarned`/`slips`.
+
+### Deck sharing
+
+Decks export as readable, URL-safe codes (`cardId.count;cardId.count;…`,
+sorted so the same deck always yields the same code). Every folio in the
+workshop gains a **Share** button (copies the link, basePath-aware for
+GitHub Pages), and `/decks/share` renders any code — with a "smudged beyond
+reading" state for garbage — and imports it as a new folio. Import still
+enforces ownership server-side.
+
+### Seasonal ladder — "Issues"
+
+The ladder resets softly every calendar month. On the first profile read of
+a new Issue, players who finished matches receive an ink payout by the rank
+they hold (Wood 50 → INK MASTER 750) and their MMR moves halfway back to the
+1000 baseline. An Issue badge sits under the rank badge on the profile.
+Implemented as pure logic (`src/lib/season.ts`) applied lazily and
+idempotently — no cron, works identically on the paper edition.
+
+### The Collected Works pack
+
+A second pack type in the Ink Vault: **150 ink, guaranteed epic or better**
+(the standard pack's floor is rare). Selected with a toggle; the pack art and
+buttons reflect the chosen type. Server-authoritative roll with the same
+70/20/8/2 odds above the floor.
+
+### Card set pages
+
+The collection gains two clickable set chips — **First Edition** and
+**The Archive Set** — with live owned/total counts that filter the grid.
+Completing a set pays a one-time ink reward (First Edition 300, Archive Set
+500), granted lazily on profile read and claimed exactly once.
