@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CAMPAIGN_STAGES } from "@/game/campaign";
-import { validateDeck } from "@/game/decks";
+import { validateDeck, randomDeck } from "@/game/decks";
 import { rollPack, PACK_SIZE, PACK_COST, DUPLICATE_REFUND } from "@/game/packs";
 import { COLLECTIBLE_CARDS } from "@/game/cards";
 
@@ -31,6 +31,15 @@ describe("campaign", () => {
 });
 
 describe("packs", () => {
+  it("randomDeck never contains token cards and always fills 20", () => {
+    for (const seed of [1, 7, 42, 999, 12345, 20261031]) {
+      const deck = randomDeck(seed);
+      expect(deck.reduce((n, e) => n + e.count, 0)).toBe(20);
+      const tokenIds = new Set(COLLECTIBLE_CARDS.filter((c) => c.token).map((c) => c.id));
+      for (const e of deck) expect(tokenIds.has(e.cardId), `${e.cardId} is a token`).toBe(false);
+    }
+  });
+
   it("always yields 5 cards with at least one rare+", () => {
     for (let seed = 0; seed < 200; seed++) {
       let s = seed * 2654435761;

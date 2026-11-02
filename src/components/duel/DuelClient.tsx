@@ -240,8 +240,10 @@ export default function DuelClient() {
       ? { key: stage.policy as BotProfile["key"], name: stage.name, elo: 900 + stage.index * 50, blurb: stage.blurb }
       : pickBot(playerMmr);
     const matchSeed = Math.floor(Math.random() * 2 ** 31);
-    const botDeck = stage
-      ? stage.deck.map(([cardId, count]) => ({ cardId, count }))
+    // bot decks are already expanded id lists; campaign stages carry
+    // {cardId,count} entries — normalize both to id lists for createGame
+    const botDeck: string[] = stage
+      ? expandDeck(stage.deck.map(([cardId, count]) => ({ cardId, count })))
       : botDeckIds(chosenBot.key, matchSeed);
     statsRef.current = {
       maxTurnDamage: 0,
@@ -259,7 +261,7 @@ export default function DuelClient() {
     setResult(null);
     setTimer(TURN_SECONDS);
     setState(
-      createGame(matchSeed, expandDeck(deckEntries as DeckEntry[]), expandDeck(botDeck as DeckEntry[]), "A", localName(), chosenBot.name),
+      createGame(matchSeed, expandDeck(deckEntries as DeckEntry[]), botDeck, "A", localName(), chosenBot.name),
     );
   }, [hotseat, searchParams, mpInfo, setupMp]);
 

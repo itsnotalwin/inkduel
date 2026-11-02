@@ -1,4 +1,4 @@
-import { CARD_BY_ID } from "./cards";
+import { CARD_BY_ID, COLLECTIBLE_CARDS } from "./cards";
 import { DECK_SIZE, MAX_COPIES, MAX_LEGENDARY_COPIES } from "@/config";
 
 export interface DeckEntry {
@@ -60,8 +60,9 @@ export function mulberry32(seed: number): () => number {
   };
 }
 
-/** Build a random legal 20-card deck (max 2 copies, max 1 legendary) from a pool. */
-export function randomDeck(seed: number, pool: string[] = [...CARD_BY_ID.keys()]): DeckEntry[] {
+/** Build a random legal 20-card deck (max 2 copies, max 1 legendary) from a
+ *  pool. Defaults to collectible cards only — tokens are not draftable. */
+export function randomDeck(seed: number, pool: string[] = COLLECTIBLE_CARDS.map((c) => c.id)): DeckEntry[] {
   const rand = mulberry32(seed);
   const entries: DeckEntry[] = [];
   let total = 0;
