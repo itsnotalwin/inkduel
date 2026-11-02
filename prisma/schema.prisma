@@ -33,6 +33,7 @@ model Player {
   matches       Match[]
   achievements  PlayerAchievement[]
   quests        DailyQuest[]
+  puzzlesSolved PuzzleSolved[]
 
   @@unique([name, tag])
   @@index([mmr])
@@ -133,6 +134,17 @@ model CardStat {
 }
 
 // ── Multiplayer v0: lockstep duels over HTTP polling (MULTIPLAYER.md) ──
+
+// ── The Archivist's Tests: one payout per puzzle per player ─────────────
+
+model PuzzleSolved {
+  playerId    String
+  puzzleId    String
+  solvedAt    DateTime @default(now())
+  player      Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@id([playerId, puzzleId])
+}
 
 model Duel {
   id        String   @id @default(uuid())

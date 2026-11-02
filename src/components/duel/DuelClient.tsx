@@ -17,6 +17,7 @@ import {
 } from "@/game/engine";
 import { ARCHETYPE_DECKS, getCard, type Wash } from "@/game/cards";
 import { expandDeck, type DeckEntry } from "@/game/decks";
+import { DECK_PICKS, DRAFT_STASH_KEY } from "@/game/draft";
 import { campaignStage } from "@/game/campaign";
 import { decideAction, mulliganAction, pickBot, botDeckIds, type BotProfile } from "@/game/ai";
 import { eloDelta } from "@/lib/elo";
@@ -93,6 +94,24 @@ function localDeck(): DeckEntry[] {
     }
   }
   return ARCHETYPE_DECKS.duelist.cards.map(([cardId, count]) => ({ cardId, count }));
+}
+
+/** The drafted decks the /draft page sealed away (null when absent or malformed). */
+function readDraftStash(): { player: DeckEntry[]; rival: DeckEntry[]; seed: number } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(DRAFT_STASH_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { player: DeckEntry[]; rival: DeckEntry[]; seed: number };
+    const sane = (list: unknown): list is DeckEntry[] =>
+      Array.isArray(list) &&
+      list.length === DECK_PICKS &&
+      list.every((e) => e && typeof e === "object" && typeof (e as DeckEntry).cardId === "string" && typeof (e as DeckEntry).count === "number");
+    if (typeof parsed.seed !== "number" || !sane(parsed.player) || !sane(parsed.rival)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 /** The per-side area slot: the active area's mini card face, or bare dashed
@@ -186,6 +205,8 @@ export default function DuelClient() {
   const reduce = useReducedMotion();
   const searchParams = useSearchParams();
   const hotseat = searchParams.get("mode") === "hotseat";
+  // ink draft: ?draft=1 — both decks were drafted at /draft and stashed
+  const draft = searchParams.get("draft") !== null;
   // online duel: ?mp=<duelId>&side=A|B — lockstep over the action tape
   const mpInfo = useMemo(() => {
     const duelId = searchParams.get("mp");
@@ -196,6 +217,7 @@ export default function DuelClient() {
   const [state, setState] = useState<GameState | null>(null);
   const [bot, setBot] = useState<BotProfile | null>(null);
   const [mpError, setMpError] = useState<string | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const [anim, setAnim] = useState<AnimState>(EMPTY_ANIM);
   const [targeting, setTargeting] = useState<{ kind: "play" | "attack"; uid: string; targets: Target[] } | null>(null);
   const [mulliganPicks, setMulliganPicks] = useState<Set<string>>(new Set());
@@ -280,6 +302,7 @@ export default function DuelClient() {
   const startMatch = useCallback(async () => {
     actionsRef.current = [];
     setAwaitingPass(false);
+    setDraftError(null);
     if (mpInfo) {
       mpRef.current = { duelId: mpInfo.duelId, side: mpInfo.side };
       mpTapeRef.current = [];
@@ -295,6 +318,37 @@ export default function DuelClient() {
       return;
     }
     mpRef.current = null;
+    if (draft) {
+      // ink draft: both decks were sealed by /draft — rebuild the duel from the stash
+      const stash = readDraftStash();
+      if (!stash) {
+        setBot(null);
+        setState(null);
+        setDraftError("the draft sheets went missing — start a fresh draft");
+        return;
+      }
+      await ensureGuest();
+      statsRef.current = {
+        maxTurnDamage: 0,
+        maxTurnKills: 0,
+        tookFatigue: false,
+        startedAt: Date.now(),
+        turnDamage: 0,
+        turnKills: 0,
+        deckEntries: stash.player,
+      };
+      // the AI policy drives the rival at the table; results post as "ink-draft"
+      setBot({ key: "duelist", name: "Draft Rival", elo: 1000, blurb: "twenty cards drafted in secret" });
+      setAnim(EMPTY_ANIM);
+      setTargeting(null);
+      setMulliganPicks(new Set());
+      setResult(null);
+      setTimer(TURN_SECONDS);
+      setState(
+        createGame(stash.seed, expandDeck(stash.player), expandDeck(stash.rival), "A", localName(), "Draft Rival"),
+      );
+      return;
+    }
     if (hotseat) {
       // pass & play: both humans share the active deck (mirror duel)
       const deckEntries = localDeck();
@@ -350,7 +404,7 @@ export default function DuelClient() {
     setState(
       createGame(matchSeed, expandDeck(deckEntries as DeckEntry[]), botDeck, "A", localName(), chosenBot.name),
     );
-  }, [hotseat, searchParams, mpInfo, setupMp]);
+  }, [hotseat, draft, searchParams, mpInfo, setupMp]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration of persisted preferences (mute + tutorial)
@@ -575,7 +629,9 @@ export default function DuelClient() {
     st.maxTurnKills = Math.max(st.maxTurnKills, st.turnKills);
     void (async () => {
       const server = await postMatch({
-        opponentKey: bot.key,
+        // draft duels post as the pseudo-bot "ink-draft" (fixed 1000 elo,
+        // resolved by /api/matches — never on the leaderboard's bot list)
+        opponentKey: draft ? "ink-draft" : bot.key,
         result: r,
         turns: state.sideTurns.A,
         playerHpLeft: state.players.A.heroHp,
@@ -855,6 +911,13 @@ export default function DuelClient() {
               Back to the lobby
             </Link>
           </div>
+        ) : draftError ? (
+          <div className="flex flex-col items-center gap-5">
+            <HandNote className="max-w-md text-2xl leading-snug">{draftError}</HandNote>
+            <Link href="/draft" className="stamp-btn focus-ink label-type px-4 py-2 text-xs">
+              Back to the draft
+            </Link>
+          </div>
         ) : (
           <p className="label-type animate-pulse text-sm text-graphite">
             {mp ? "Opening the duel — waiting for both decks…" : "Preparing the duel…"}
@@ -947,7 +1010,7 @@ export default function DuelClient() {
             name={foe.name}
             hp={foe.heroHp}
             side={OTHER[viewer]}
-            label="OPPONENT"
+            label={draft ? "RIVAL DRAFT" : "OPPONENT"}
             active={state.current === OTHER[viewer] && state.phase === "TURN"}
             highlight={targetingActive && highlightedTargets.has(`h:${OTHER[viewer]}`)}
             dimmed={targetingActive && !highlightedTargets.has(`h:${OTHER[viewer]}`)}
@@ -958,7 +1021,7 @@ export default function DuelClient() {
                 {slashFor(`h:${OTHER[viewer]}`)}
               </>
             }
-            sub={mpInfo ? "online rival" : bot ? `${bot.name} · ${bot.elo} MMR` : "challenger"}
+            sub={draft ? "drafted in secret" : mpInfo ? "online rival" : bot ? `${bot.name} · ${bot.elo} MMR` : "challenger"}
           />
           {/* the rival's area slot — its wash covers their half of the table */}
           <AreaSlot cardId={state.areas[OTHER[viewer]]} tipBelow />
@@ -999,7 +1062,7 @@ export default function DuelClient() {
             name={me.name}
             hp={me.heroHp}
             side={viewer}
-            label={hotseat ? (viewer === "A" ? "PLAYER 1" : "PLAYER 2") : "YOU"}
+            label={hotseat ? (viewer === "A" ? "PLAYER 1" : "PLAYER 2") : draft ? "YOUR DRAFT" : "YOU"}
             active={isPlayerTurn}
             highlight={targetingActive && highlightedTargets.has(`h:${viewer}`)}
             dimmed={targetingActive && !highlightedTargets.has(`h:${viewer}`)}
@@ -1373,6 +1436,10 @@ export default function DuelClient() {
               {mpInfo ? (
                 <Link href="/multiplayer" className="stamp-btn focus-ink label-type px-8 py-4 text-lg">
                   New Duel
+                </Link>
+              ) : draft ? (
+                <Link href="/draft" className="stamp-btn focus-ink label-type px-8 py-4 text-lg">
+                  New Draft
                 </Link>
               ) : (
                 <StampButton size="lg" onClick={startMatch}>

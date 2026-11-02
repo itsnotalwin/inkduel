@@ -167,6 +167,104 @@ export function createGame(seed: number, deckA: string[], deckB: string[], first
   return state;
 }
 
+// ── Puzzle setup (The Archivist's Tests) ────────────────────────────────
+
+/** One board unit of a puzzle position; stats override the card's own. */
+export interface PuzzleUnit {
+  cardId: string;
+  attack?: number;
+  health?: number;
+  keywords?: Keyword[];
+}
+
+export interface PuzzleSpec {
+  seed: number;
+  heroHpA: number;
+  heroHpB: number;
+  manaA: number;
+  manaB: number;
+  boardA: PuzzleUnit[];
+  boardB: PuzzleUnit[];
+  handA: string[];
+  handB?: string[];
+  /** Default: empty — no draws, fatigue looms, puzzles stay short. */
+  deckA?: string[];
+  deckB?: string[];
+  /** Side A's turn counter at setup (default 1). A's next turn draws STARTING_MANA + this. */
+  sideTurnsA?: number;
+}
+
+/**
+ * Build an authored puzzle position mid-duel: phase "TURN", side A to move,
+ * no mulligan, no areas, board units ready to strike (attacksLeft 1, no
+ * sickness). Fully deterministic — no shuffling, no Math.random — with a
+ * fixed uid scheme the solution tapes (and the duel UI) can rely on:
+ * hand A `p0..pn`, hand B `q0..qn`, board A `a0..an`, board B `b0..bn`,
+ * decks `dA0..` / `dB0..` in given order (top of deck = last element).
+ * The seeded rng stream starts untouched at `seed` so any tokens summoned
+ * during the replay still come out deterministically.
+ */
+export function makePuzzle(spec: PuzzleSpec): GameState {
+  const sideTurnsA = spec.sideTurnsA ?? 1;
+  const units = (list: PuzzleUnit[], prefix: string): UnitInstance[] =>
+    list.map((entry, i) => {
+      const def = getCard(entry.cardId);
+      const health = entry.health ?? def.health ?? 1;
+      return {
+        uid: `${prefix}${i}`,
+        cardId: entry.cardId,
+        attack: entry.attack ?? def.attack ?? 0,
+        health,
+        maxHealth: health,
+        keywords: [...(entry.keywords ?? def.keywords ?? [])],
+        attacksLeft: 1,
+        sick: false,
+      };
+    });
+  const cards = (ids: string[], prefix: string): CardInstance[] => ids.map((cardId, i) => ({ uid: `${prefix}${i}`, cardId }));
+  return {
+    seed: spec.seed,
+    rngState: spec.seed | 0,
+    turn: sideTurnsA + 1,
+    sideTurns: { A: sideTurnsA, B: 1 },
+    phase: "TURN",
+    current: "A",
+    first: "A",
+    players: {
+      A: {
+        side: "A",
+        name: "You",
+        heroHp: spec.heroHpA,
+        mana: spec.manaA,
+        maxMana: spec.manaA,
+        tempMana: 0,
+        deck: cards(spec.deckA ?? [], "dA"),
+        hand: cards(spec.handA, "p"),
+        board: units(spec.boardA, "a"),
+        fatigue: 0,
+      },
+      B: {
+        side: "B",
+        name: "The Archivist",
+        heroHp: spec.heroHpB,
+        mana: spec.manaB,
+        maxMana: spec.manaB,
+        tempMana: 0,
+        deck: cards(spec.deckB ?? [], "dB"),
+        hand: cards(spec.handB ?? [], "q"),
+        board: units(spec.boardB, "b"),
+        fatigue: 0,
+      },
+    },
+    winner: null,
+    areas: { A: null, B: null },
+    events: [{ type: "GAME_START" }],
+    log: [{ turn: sideTurnsA, side: "sys", text: "The Archivist sets the test. Your move." }],
+    mulliganDone: { A: true, B: true },
+    damageThisTurn: { side: "A", n: 0, kills: 0 },
+  };
+}
+
 // ── Small helpers ───────────────────────────────────────────────────────
 
 function player(s: GameState, side: Side): PlayerState {
