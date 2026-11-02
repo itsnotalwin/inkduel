@@ -157,7 +157,25 @@ export const CARDS: CardDef[] = [
   C({ id: "foreword", name: "Foreword", type: "spell", cost: 6, rarity: "epic", text: "Give all friendly units +2/+2", lore: "Written last. Read first.", onPlay: [{ kind: "BUFF", atk: 2, hp: 2, target: "allFriendly" }] }),
   C({ id: "blot_out", name: "Blot Out", type: "spell", cost: 6, rarity: "rare", text: "Deal 6 damage to any target", lore: "The deleting pen. No survivors in its margins.", onPlay: [{ kind: "DEAL_DAMAGE", n: 6, target: "any" }] }),
 
+  // ── Wave 4: "The Uncatalogued" — things the Great Blot left behind ──
+  C({ id: "ink_stain", name: "Ink Stain", type: "unit", cost: 2, attack: 1, health: 3, rarity: "common", text: "Echo: summon two Scribbles.", lore: "It spread while nobody was looking.", onPlay: [], echo: [{ kind: "SUMMON", token: "scribble", count: 2 }] }),
+  C({ id: "blot_imp", name: "Blot Imp", type: "unit", cost: 1, attack: 3, health: 1, rarity: "common", text: "", lore: "Half imp, half typo." }),
+  C({ id: "margin_note", name: "Margin Note", type: "spell", cost: 1, rarity: "common", text: "Draw a card.", lore: "Written small, remembered anyway.", onPlay: [{ kind: "DRAW", n: 1 }] }),
+  C({ id: "smudge_wisp", name: "Smudge Wisp", type: "unit", cost: 3, attack: 2, health: 4, rarity: "common", keywords: ["guard"], text: "Guard", lore: "A fingerprint of the Blot." }),
+  C({ id: "half_erased", name: "Half-Erased", type: "unit", cost: 3, attack: 4, health: 2, rarity: "common", text: "", lore: "It was a hero once. The name went first." }),
+  C({ id: "faded_scribe", name: "Faded Scribe", type: "unit", cost: 3, attack: 2, health: 3, rarity: "common", keywords: ["insight"], text: "Insight", lore: "Keeps writing even as the words go grey." }),
+  C({ id: "paper_wraith", name: "Paper Wraith", type: "unit", cost: 4, attack: 3, health: 3, rarity: "common", keywords: ["swift"], text: "Swift", lore: "Folded from the pages of lost drafts." }),
+  C({ id: "smudge_ogre", name: "Smudge Ogre", type: "unit", cost: 5, attack: 4, health: 6, rarity: "common", text: "", lore: "Two fingerprints, one temper." }),
+  C({ id: "erasure_wave", name: "Erasure Wave", type: "spell", cost: 5, rarity: "rare", text: "Deal 3 damage to all enemy units.", lore: "The First Rule, applied with a sponge.", onPlay: [{ kind: "DEAL_DAMAGE", n: 3, target: "allEnemyUnits" }] }),
+  C({ id: "smudge_twin", name: "Smudge Twin", type: "unit", cost: 5, attack: 5, health: 3, rarity: "rare", keywords: ["twinstrike"], text: "Twinstrike", lore: "The Blot doubled it. It never decided which half was real." }),
+  C({ id: "recalled_edition", name: "Recalled Edition", type: "spell", cost: 4, rarity: "rare", text: "Return a friendly unit to its owner's hand. Draw a card.", lore: "Out of print. Back in hand.", onPlay: [{ kind: "RETURN_TO_HAND", target: "chosenFriendly" }, { kind: "DRAW", n: 1 }] }),
+  C({ id: "ink_drinker", name: "Ink Drinker", type: "unit", cost: 5, attack: 4, health: 5, rarity: "rare", text: "Echo: your hero takes 3 damage.", lore: "It feeds on the margins.", echo: [{ kind: "DEAL_DAMAGE", n: 3, target: "ownHero" }] }),
+  C({ id: "uncatalogued_beast", name: "Uncatalogued Beast", type: "unit", cost: 6, attack: 6, health: 5, rarity: "rare", text: "", lore: "It has no record, therefore it does not exist. Ask it yourself." }),
+  C({ id: "the_second_blot", name: "The Second Blot", type: "spell", cost: 7, rarity: "epic", text: "Deal 4 damage to all enemy units. Restore 3 HP to your hero.", lore: "History repeats. This time it brought a towel.", onPlay: [{ kind: "DEAL_DAMAGE", n: 4, target: "allEnemyUnits" }, { kind: "HEAL_HERO", n: 3 }] }),
+  C({ id: "paper_leviathan", name: "Paper Leviathan", type: "unit", cost: 8, attack: 7, health: 7, rarity: "epic", keywords: ["guard"], text: "Guard", lore: "Every archive has a basement. Something lives under it." }),
+  C({ id: "the_great_blot", name: "The Great Blot", type: "unit", cost: 9, attack: 7, health: 7, rarity: "legendary", text: "On play: deal 3 damage to all enemy units. Summon two Blots.", lore: "Nobody knows who spilled it. Everybody remembers what it wanted.", onPlay: [{ kind: "DEAL_DAMAGE", n: 3, target: "allEnemyUnits" }, { kind: "SUMMON", token: "blot", count: 2 }] }),
   // ── Tokens (not collectible) ─────────────────────────────────
+  C({ id: "blot", name: "Blot", type: "unit", cost: 2, attack: 2, health: 2, rarity: "common", token: true, text: "", lore: "Where the ink pooled, something learned to swim." }),
   C({ id: "ash_wing", name: "Ash Wing", type: "unit", cost: 2, attack: 2, health: 2, rarity: "common", token: true, text: "", lore: "Rises, briefly, from the phoenix's desk." }),
   C({ id: "ghost_text", name: "Ghost Text", type: "unit", cost: 1, attack: 1, health: 1, rarity: "common", token: true, text: "", lore: "A sentence the page almost kept." }),
   C({ id: "ink_golem", name: "Ink Golem", type: "unit", cost: 3, attack: 3, health: 3, rarity: "common", token: true, text: "", lore: "Poured, not drawn." }),
@@ -189,6 +207,11 @@ export const ARCHIVE_SET_IDS = new Set([
   "wax_seal", "paper_shredder", "red_letter_day", "fools_cap", "wide_margin_victory",
   "reinforced_margins", "signing_bonus", "the_long_letter", "red_ink_flood",
   "final_notice", "the_second_edition",
+  // Wave 4: "The Uncatalogued"
+  "ink_stain", "blot_imp", "margin_note", "smudge_wisp", "half_erased",
+  "faded_scribe", "paper_wraith", "smudge_ogre", "erasure_wave", "smudge_twin",
+  "recalled_edition", "ink_drinker", "uncatalogued_beast", "the_second_blot",
+  "paper_leviathan", "the_great_blot",
 ]);
 
 // ── Card sets (collection filters + completion rewards) ────────────────

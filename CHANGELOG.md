@@ -180,3 +180,21 @@ The collection gains two clickable set chips — **First Edition** and
 **The Archive Set** — with live owned/total counts that filter the grid.
 Completing a set pays a one-time ink reward (First Edition 300, Archive Set
 500), granted lazily on profile read and claimed exactly once.
+
+## Wave 4: "The Uncatalogued" (16 new cards + token)
+
+The Great Blot from the prologue backstory leaks into the collection: 16 new
+pull-only cards in the Archive Set (8 common, 5 rare, 2 epic, 1 legendary —
+now 56/56 across the two sets, 112 collectibles total). Highlights:
+
+- **The Great Blot** (9-cost legendary): 3 damage to all enemy units + two
+  2/2 Blot tokens. Nobody knows who spilled it.
+- **The Second Blot** (7-cost epic): 4 AoE + heal 3 — the Blot with a towel.
+- **Ink Stain** (2-cost common): Echo floods the board with two Scribbles.
+- **Ink Drinker** (5-cost rare): 4/5 whose Echo costs you 3 HP — the heal
+  that eats the burn margin, on your side of the table.
+- **Recalled Edition** (4-cost rare): friendly bounce + cantrip.
+- **Erasure Wave** (5-cost rare): the First Rule, applied with a sponge.
+
+All enter the pack pool, the crafting pool, and the Archive Set completion
+count automatically. 7 new per-effect tests (151 total).

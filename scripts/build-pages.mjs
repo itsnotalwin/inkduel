@@ -36,6 +36,11 @@ if (stashedTests.length > 0) {
 
 let code = 1;
 try {
+  // the full-stack build's TS incremental cache lies about the stashed file
+  // set — clear it so the type check sees the stash honestly
+  for (const p of [".next/tsconfig.tsbuildinfo", ".next/cache/tsbuildinfo"]) {
+    rmSync(p, { recursive: true, force: true });
+  }
   const result = spawnSync("npx", ["next", "build"], {
     stdio: "inherit",
     shell: true,
