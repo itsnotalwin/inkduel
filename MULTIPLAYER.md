@@ -154,11 +154,16 @@ What the code gets:
 
 ## 8. Build order
 
-- [ ] **v0.1** Prisma models `Duel`/`DuelAction` + `db push`
-- [ ] **v0.2** routes: create / join / action / state (polling)
-- [ ] **v0.3** `DuelClient` online mode: input gate + remote action apply
-- [ ] **v0.4** `/multiplayer` lobby with invite codes
-- [ ] **v0.5** server tape replay verification + result posting into ranked
+- [x] **v0.1** Prisma models `Duel`/`DuelAction` + `db push`
+- [x] **v0.2** routes: create / join / action / state (polling) — NOTE: the
+      state response is EXCLUSIVE in `since` (seq > since); clients poll with
+      `since = lastSeqHeld` (initial poll uses -1)
+- [x] **v0.3** `DuelClient` online mode: input gate + remote action apply
+      (`/duel?mp=<duelId>&side=A|B`)
+- [x] **v0.4** `/multiplayer` lobby with invite codes
+- [x] **v0.5** server tape replay verification + result posting into ranked
+      (`src/lib/record-match.ts` shared by /api/matches and /api/mp/result;
+      duel Elo is zero-sum vs the opponent's pre-duel MMR)
 - [ ] **v1.0** Supabase Postgres migration + Realtime transport swap
 - [ ] **v1.1** server-authoritative redacted views (hand privacy) for ranked
 - [ ] **v1.2** matchmaking queue by MMR (reuses the bot-pick logic)

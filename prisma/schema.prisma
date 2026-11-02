@@ -131,3 +131,35 @@ model CardStat {
   gamesPlayed Int    @default(0)
   wins        Int    @default(0)
 }
+
+// ── Multiplayer v0: lockstep duels over HTTP polling (MULTIPLAYER.md) ──
+
+model Duel {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  seed      Int
+  status    String   @default("waiting") // waiting | active | finished | abandoned
+  playerAId String
+  playerBId String?
+  deckA     Json
+  deckB     Json?
+  winner    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  actions   DuelAction[]
+
+  @@index([playerAId])
+  @@index([playerBId])
+}
+
+model DuelAction {
+  id     String @id @default(uuid())
+  duelId String
+  seq    Int
+  side   String
+  action Json
+  duel   Duel   @relation(fields: [duelId], references: [id], onDelete: Cascade)
+
+  @@unique([duelId, seq])
+  @@index([duelId])
+}

@@ -415,6 +415,124 @@ export function completeCampaignStage(stage: number, result: MatchResult): Promi
   });
 }
 
+// ── multiplayer (v0 lockstep, open lists) ───────────────────────────────
+
+export interface MpDeckList {
+  cardId: string;
+  count: number;
+}
+
+export interface MpCreateData {
+  duelId: string;
+  code: string;
+  seed: number;
+  yourSide: "A";
+}
+
+export interface MpJoinData {
+  duelId: string;
+  code: string;
+  seed: number;
+  deckA: MpDeckList[];
+  deckB: MpDeckList[];
+  yourSide: "B";
+  opponentName: string;
+}
+
+export interface MpActionRow {
+  seq: number;
+  side: "A" | "B";
+  action: unknown;
+}
+
+export interface MpStateData {
+  status: "waiting" | "active" | "finished" | "abandoned";
+  /** Actions with seq > since, ascending. */
+  actions: MpActionRow[];
+  winner: "A" | "B" | "DRAW" | null;
+  playerAName: string | null;
+  playerBName: string | null;
+  deckA: MpDeckList[] | null;
+  deckB: MpDeckList[] | null;
+}
+
+export interface MpResultPayload {
+  duelId: string;
+  winner: "A" | "B" | "DRAW";
+  turns: number;
+  playerHpLeft: number;
+  botHpLeft: number;
+  seed: number;
+  durationMs?: number;
+}
+
+export interface MpResultData {
+  verified: boolean;
+  winner: "A" | "B" | "DRAW";
+  matchesRecorded: number;
+}
+
+/** Per-duel seed stash: the reconnect path rebuilds the game from seed +
+ *  decks + the server tape, and the seed only travels on create/join. */
+const MP_STASH_PREFIX = "inkduel:mp:duel:";
+
+function stashMpDuel(duelId: string, info: { seed: number; side: "A" | "B" }): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(MP_STASH_PREFIX + duelId, JSON.stringify(info));
+  } catch {
+    // storage full / blocked — the duel still plays, reload just can't rebuild
+  }
+}
+
+/** Seed + side for a duel this device created or joined (null otherwise). */
+export function readMpDuel(duelId: string): { seed: number; side: "A" | "B" } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(MP_STASH_PREFIX + duelId);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { seed: number; side: "A" | "B" };
+    if (typeof parsed.seed !== "number" || (parsed.side !== "A" && parsed.side !== "B")) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/** Open a duel as side A: stores the invite code + seed and waits in the lobby. */
+export function mpCreate(name: string, deck: MpDeckList[]): Promise<MpCreateData | null> {
+  return request<MpCreateData>("/api/mp/create", { method: "POST", body: JSON.stringify({ name, deck }) }).then((data) => {
+    if (data) stashMpDuel(data.duelId, { seed: data.seed, side: "A" });
+    return data;
+  });
+}
+
+/** Join an open duel by invite code as side B. */
+export function mpJoin(code: string, name: string, deck: MpDeckList[]): Promise<MpJoinData | null> {
+  return request<MpJoinData>("/api/mp/join", { method: "POST", body: JSON.stringify({ code, name, deck }) }).then((data) => {
+    if (data) stashMpDuel(data.duelId, { seed: data.seed, side: "B" });
+    return data;
+  });
+}
+
+/** Submit one action. seq = this action's position on the tape. 403/409 on
+ *  rejection — the caller ignores it and the state poll reconciles. */
+export function mpAction(duelId: string, side: "A" | "B", seq: number, action: unknown): Promise<{ seq: number } | null> {
+  return request<{ seq: number }>("/api/mp/action", { method: "POST", body: JSON.stringify({ duelId, side, seq, action }) });
+}
+
+/** Poll the duel: status, both decks, and every action past `since`. */
+export function mpState(duelId: string, since: number): Promise<MpStateData | null> {
+  return request<MpStateData>(
+    `/api/mp/state?duelId=${encodeURIComponent(duelId)}&since=${Number.isFinite(since) ? Math.max(0, Math.floor(since)) : 0}`,
+  );
+}
+
+/** Report the observed final state; the server verifies it by replaying the tape. */
+export function mpResult(payload: MpResultPayload): Promise<MpResultData | null> {
+  return request<MpResultData>("/api/mp/result", { method: "POST", body: JSON.stringify(payload) });
+}
+
 // ── paper-edition helpers ───────────────────────────────────────────────
 
 function rankNameFor(mmr: number): string {

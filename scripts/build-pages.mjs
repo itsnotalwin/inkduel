@@ -13,11 +13,11 @@ const apiDir = "src/app/api";
 const stashDir = ".api-stash";
 const hadApi = existsSync(apiDir);
 
-// the contract test imports the route handlers — stash it with them or its
-// imports dangle while the api directory is away
-const contractTest = "tests/api-contract.test.ts";
+// tests that import route handlers — stash them with the api directory or
+// their imports dangle while it is away
+const apiTestFiles = ["tests/api-contract.test.ts", "tests/mp-contract.test.ts"];
 const testStashDir = ".test-stash";
-const hadTest = existsSync(contractTest);
+const stashedTests = apiTestFiles.filter((f) => existsSync(f));
 
 if (hadApi) {
   rmSync(stashDir, { recursive: true, force: true });
@@ -25,11 +25,13 @@ if (hadApi) {
   rmSync(apiDir, { recursive: true, force: true });
   console.log("api routes stashed");
 }
-if (hadTest) {
+if (stashedTests.length > 0) {
   rmSync(testStashDir, { recursive: true, force: true });
-  cpSync(contractTest, join(testStashDir, "api-contract.test.ts"));
-  rmSync(contractTest, { force: true });
-  console.log("api contract test stashed");
+  for (const f of stashedTests) {
+    cpSync(f, join(testStashDir, f.replace(/[\\/]/g, "__")));
+    rmSync(f, { force: true });
+  }
+  console.log(`api tests stashed: ${stashedTests.length}`);
 }
 
 let code = 1;
@@ -52,11 +54,13 @@ try {
     rmSync(stashDir, { recursive: true, force: true });
     console.log("api routes restored");
   }
-  if (hadTest) {
-    rmSync(contractTest, { force: true });
-    cpSync(join(testStashDir, "api-contract.test.ts"), contractTest);
+  if (stashedTests.length > 0) {
+    for (const f of stashedTests) {
+      rmSync(f, { force: true });
+      cpSync(join(testStashDir, f.replace(/[\\/]/g, "__")), f);
+    }
     rmSync(testStashDir, { recursive: true, force: true });
-    console.log("api contract test restored");
+    console.log("api tests restored");
   }
 }
 

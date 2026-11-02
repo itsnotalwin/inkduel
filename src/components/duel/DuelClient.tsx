@@ -22,7 +22,7 @@ import { decideAction, mulliganAction, pickBot, botDeckIds, type BotProfile } fr
 import { eloDelta } from "@/lib/elo";
 import { sound } from "@/lib/sound";
 import { ambient } from "@/lib/ambient";
-import { completeCampaignStage, ensureGuest, getDecks, postMatch, type CampaignResult, type MatchPostResult } from "@/lib/api";
+import { completeCampaignStage, ensureGuest, getDecks, mpAction, mpResult, mpState, postMatch, readMpDuel, type CampaignResult, type MatchPostResult } from "@/lib/api";
 import { LegendaryFlourish, type FlourishState } from "./LegendaryFlourish";
 import { bumpDuelCount, dismissTutorialTip, readDuelCount, readTutorialFlags, TutorialTip, type TutorialFlags } from "@/components/onboarding/Tutorial";
 import { playVoice } from "@/lib/voice";
@@ -64,9 +64,10 @@ const EMPTY_ANIM: AnimState = { floaters: [], slash: null, lungingUid: null, ban
 
 let animId = 1;
 
-/** Which side the screen belongs to: fixed to A solo; follows the turn in hot-seat. */
-function viewerSideOf(hotseat: boolean, s: GameState): Side {
-  return hotseat ? s.current : "A";
+/** Which side the screen belongs to: fixed to A solo; follows the turn in
+ *  hot-seat; pinned to your online side in multiplayer. */
+function viewerSideOf(hotseat: boolean, mpSide: Side | null, s: GameState): Side {
+  return mpSide ?? (hotseat ? s.current : "A");
 }
 
 function localMmr(): number {
@@ -98,8 +99,16 @@ export default function DuelClient() {
   const reduce = useReducedMotion();
   const searchParams = useSearchParams();
   const hotseat = searchParams.get("mode") === "hotseat";
+  // online duel: ?mp=<duelId>&side=A|B — lockstep over the action tape
+  const mpInfo = useMemo(() => {
+    const duelId = searchParams.get("mp");
+    if (!duelId) return null;
+    return { duelId, side: (searchParams.get("side") === "B" ? "B" : "A") as Side };
+  }, [searchParams]);
+  const mp = mpInfo !== null;
   const [state, setState] = useState<GameState | null>(null);
   const [bot, setBot] = useState<BotProfile | null>(null);
+  const [mpError, setMpError] = useState<string | null>(null);
   const [anim, setAnim] = useState<AnimState>(EMPTY_ANIM);
   const [targeting, setTargeting] = useState<{ kind: "play" | "attack"; uid: string; targets: Target[] } | null>(null);
   const [mulliganPicks, setMulliganPicks] = useState<Set<string>>(new Set());
@@ -119,6 +128,11 @@ export default function DuelClient() {
     stateRef.current = state;
   }, [state]);
   const actionsRef = useRef<Action[]>([]);
+  // online mode bookkeeping: the duel identity, the authoritative action tape
+  // (both sides, seq = index), and a re-entrancy guard for the poll loop
+  const mpRef = useRef<{ duelId: string; side: Side } | null>(null);
+  const mpTapeRef = useRef<Action[]>([]);
+  const mpPollBusyRef = useRef(false);
   const hotseatRef = useRef(hotseat);
   useEffect(() => {
     hotseatRef.current = hotseat;
@@ -134,9 +148,66 @@ export default function DuelClient() {
   });
 
   // ── match setup ───────────────────────────────────────────────────────
+  /** Online setup: wait for both decks, then rebuild the game from seed +
+   *  stored deck lists + the full server tape (silent replay). This is also
+   *  the reconnect path — a reload replays 0..latest and is back in the duel. */
+  const setupMp = useCallback(async (info: { duelId: string; side: Side }) => {
+    for (let attempt = 0; attempt < 150; attempt++) {
+      // `since` is the last seq already held (exclusive response) — -1 = everything
+      const st = await mpState(info.duelId, -1);
+      if (st && st.status === "active" && st.deckA && st.deckB) {
+        const stash = readMpDuel(info.duelId);
+        if (!stash) {
+          setMpError("this device lost the duel's seed — rejoin from the lobby");
+          return;
+        }
+        let gs = createGame(
+          stash.seed,
+          expandDeck(st.deckA as DeckEntry[]),
+          expandDeck(st.deckB as DeckEntry[]),
+          "A",
+          st.playerAName ?? "Player A",
+          st.playerBName ?? "Rival",
+        );
+        const tape: Action[] = [];
+        for (const row of st.actions) {
+          const action = row.action as Action;
+          tape.push(action);
+          gs = applyAction(gs, action);
+          drainEvents(gs); // silent replay: reconnect shows the position, not the fireworks
+        }
+        mpTapeRef.current = tape;
+        statsRef.current.startedAt = Date.now();
+        setState(gs);
+        return;
+      }
+      if (st && st.status === "abandoned") {
+        setMpError("the rival left before the duel began");
+        return;
+      }
+      await new Promise((r) => window.setTimeout(r, 1200));
+    }
+    setMpError("could not reach the duel — head back to the lobby");
+  }, []);
+
   const startMatch = useCallback(async () => {
     actionsRef.current = [];
     setAwaitingPass(false);
+    if (mpInfo) {
+      mpRef.current = { duelId: mpInfo.duelId, side: mpInfo.side };
+      mpTapeRef.current = [];
+      setBot(null);
+      setAnim(EMPTY_ANIM);
+      setTargeting(null);
+      setMulliganPicks(new Set());
+      setResult(null);
+      setMpError(null);
+      setTimer(TURN_SECONDS);
+      setState(null);
+      await setupMp(mpInfo);
+      return;
+    }
+    mpRef.current = null;
     if (hotseat) {
       // pass & play: both humans share the active deck (mirror duel)
       const deckEntries = localDeck();
@@ -190,7 +261,7 @@ export default function DuelClient() {
     setState(
       createGame(matchSeed, expandDeck(deckEntries as DeckEntry[]), expandDeck(botDeck as DeckEntry[]), "A", localName(), chosenBot.name),
     );
-  }, [hotseat, searchParams]);
+  }, [hotseat, searchParams, mpInfo, setupMp]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration of persisted preferences (mute + tutorial)
@@ -264,11 +335,13 @@ export default function DuelClient() {
             if (e.side === "A") statsRef.current.tookFatigue = true;
             break;
           case "TURN_START": {
+            // online: the screen belongs to your side; solo: to A; hot-seat: follows the turn
+            const vs = mpRef.current?.side ?? "A";
             next.banner = {
               id: animId++,
               text: hotseatRef.current
                 ? `PLAYER ${e.side === "A" ? "1" : "2"}'S TURN`
-                : e.side === "A"
+                : e.side === vs
                   ? "YOUR TURN"
                   : "THEIR TURN",
               tone: "ink",
@@ -304,9 +377,18 @@ export default function DuelClient() {
   }, []);
 
   // ── action plumbing ───────────────────────────────────────────────────
+  // Local actions: apply optimistically (same path hotseat uses, so drained
+  // events animate instantly) then POST to the tape at seq = tape length.
+  // Remote actions arrive through the poll and flow through the same path.
   const doAction = useCallback(
     (action: Action) => {
       actionsRef.current.push(action);
+      const mp = mpRef.current;
+      let seq: number | null = null;
+      if (mp) {
+        seq = mpTapeRef.current.length;
+        mpTapeRef.current.push(action);
+      }
       setState((prev) => {
         if (!prev) return prev;
         const next = applyAction(prev, action);
@@ -314,6 +396,12 @@ export default function DuelClient() {
         return next;
       });
       setTargeting(null);
+      if (mp && seq !== null) {
+        void mpAction(mp.duelId, mp.side, seq, action).then(() => {
+          // 403/409/network failures are ignored on purpose: the action never
+          // joined the server tape, and the poll's seq check reconciles.
+        });
+      }
     },
     [processEvents],
   );
@@ -323,12 +411,12 @@ export default function DuelClient() {
     if (!state) return;
     if (state.phase === "MULLIGAN") ambient.setPhase("mulligan");
     else if (state.phase === "GAME_OVER") ambient.setPhase("over");
-    else if (hotseat || state.current === viewerSideOf(hotseat, state)) ambient.setPhase("player");
+    else if (hotseat || state.current === viewerSideOf(hotseat, mpInfo?.side ?? null, state)) ambient.setPhase("player");
     else ambient.setPhase("opponent");
     // board density feeds the bed — ten slots total; empty boards settle it back to rest
     const alive = state.players.A.board.length + state.players.B.board.length;
     ambient.setIntensity(state.phase === "TURN" ? alive / 10 : 0);
-  }, [state, hotseat]);
+  }, [state, hotseat, mpInfo]);
 
   useEffect(() => {
     return () => ambient.stop();
@@ -345,6 +433,28 @@ export default function DuelClient() {
       setResult({ result: r, mmrBefore: 0, mmrAfter: 0 });
       if (r !== "DRAW") sound.victoryDing(state.seed);
       else sound.defeatNote(state.seed);
+      return;
+    }
+    if (mpInfo) {
+      // state.winner is already side-keyed — map it to your perspective for the
+      // overlay and report it verbatim; the server verifies by replaying the tape
+      const w = state.winner;
+      const r: "WIN" | "LOSS" | "DRAW" = w === mpInfo.side ? "WIN" : w === "draw" || w === null ? "DRAW" : "LOSS";
+      const mpWinner: "A" | "B" | "DRAW" = w === "A" || w === "B" ? w : "DRAW";
+      void (async () => {
+        await mpResult({
+          duelId: mpInfo.duelId,
+          winner: mpWinner,
+          turns: state.sideTurns.A,
+          playerHpLeft: state.players.A.heroHp,
+          botHpLeft: state.players.B.heroHp,
+          seed: state.seed,
+          durationMs: Date.now() - statsRef.current.startedAt,
+        });
+        setResult({ result: r, mmrBefore: 0, mmrAfter: 0 });
+        if (r === "WIN") sound.victoryDing(state.seed);
+        else if (r === "LOSS") sound.defeatNote(state.seed);
+      })();
       return;
     }
     const stageParam = searchParams.get("campaign");
@@ -398,7 +508,7 @@ export default function DuelClient() {
 
   // ── AI loop (solo only) ───────────────────────────────────────────────
   useEffect(() => {
-    if (hotseat) return;
+    if (hotseat || mpInfo) return;
     const gs = stateRef.current;
     if (!gs || !bot) return;
     if (gs.phase === "MULLIGAN" && gs.mulliganDone.A && !gs.mulliganDone.B) {
@@ -418,11 +528,90 @@ export default function DuelClient() {
       }, 700);
       return () => window.clearTimeout(t);
     }
-  }, [state, bot, doAction, hotseat]);
+  }, [state, bot, doAction, hotseat, mpInfo]);
+
+  // ── online: pull the rival's actions off the tape ─────────────────────
+  /** Full resync from the tape: seed + decks + every recorded action, replayed
+   *  silently. Used when the server tape disagrees with the local replay —
+   *  e.g. our optimistic action was rejected (403/409) and the rival moved. */
+  const resyncMp = useCallback(async () => {
+    const mp = mpRef.current;
+    if (!mp) return;
+    const st = await mpState(mp.duelId, -1);
+    if (!st || !st.deckA || !st.deckB) return;
+    const stash = readMpDuel(mp.duelId);
+    if (!stash) return;
+    let gs = createGame(
+      stash.seed,
+      expandDeck(st.deckA as DeckEntry[]),
+      expandDeck(st.deckB as DeckEntry[]),
+      "A",
+      st.playerAName ?? "Player A",
+      st.playerBName ?? "Rival",
+    );
+    const tape: Action[] = [];
+    for (const row of st.actions) {
+      const action = row.action as Action;
+      tape.push(action);
+      gs = applyAction(gs, action);
+      drainEvents(gs);
+    }
+    mpTapeRef.current = tape;
+    setState(gs);
+  }, []);
+
+  /** One poll pass: fetch unseen actions and apply them in seq order through
+   *  the same apply+animate path local (and hot-seat) actions use. */
+  const pollMp = useCallback(async () => {
+    const mp = mpRef.current;
+    if (!mp) return;
+    const tape = mpTapeRef.current;
+    // `since` is the last seq already held (exclusive response) — the first
+    // unseen action lands exactly at tape.length
+    const st = await mpState(mp.duelId, tape.length - 1);
+    if (!st || st.actions.length === 0) return;
+    // tape discipline: the first unseen action must land exactly at the local
+    // tape's end — anything else means the server won a race we lost
+    if (st.actions[0].seq !== tape.length) {
+      await resyncMp();
+      return;
+    }
+    for (const row of st.actions) {
+      const action = row.action as Action;
+      mpTapeRef.current.push(action);
+      setState((prev) => {
+        if (!prev) return prev;
+        const next = applyAction(prev, action);
+        processEvents(next); // remote actions animate exactly like local ones
+        return next;
+      });
+    }
+  }, [processEvents, resyncMp]);
+
+  useEffect(() => {
+    if (!mp) return;
+    const iv = window.setInterval(() => {
+      void (async () => {
+        if (mpPollBusyRef.current) return;
+        const cur = stateRef.current;
+        if (!cur || cur.phase === "GAME_OVER") return;
+        mpPollBusyRef.current = true;
+        try {
+          await pollMp();
+        } finally {
+          mpPollBusyRef.current = false;
+        }
+      })();
+    }, 1200);
+    return () => window.clearInterval(iv);
+  }, [mp, pollMp]);
 
   // ── turn timer ────────────────────────────────────────────────────────
-  const isPlayerTurn = !!state && state.phase === "TURN" && (hotseat || state.current === "A");
-  const autoEndSide: Side = hotseat ? state?.current ?? "A" : "A";
+  // Input gate: solo locks to A, hot-seat follows the turn, online locks to
+  // your side — every mutating handler checks isPlayerTurn.
+  const viewerSide: Side = mpInfo?.side ?? "A";
+  const isPlayerTurn = !!state && state.phase === "TURN" && (hotseat || state.current === viewerSide);
+  const autoEndSide: Side = hotseat ? state?.current ?? "A" : viewerSide;
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the countdown intentionally resets at each turn change
     setTimer(TURN_SECONDS);
@@ -432,7 +621,7 @@ export default function DuelClient() {
         if (t <= 1) {
           window.clearInterval(iv);
           const cur = stateRef.current;
-          if (cur && cur.phase === "TURN" && (hotseat || cur.current === "A")) {
+          if (cur && cur.phase === "TURN" && (hotseat || cur.current === autoEndSide)) {
             doAction({ type: "END_TURN", side: autoEndSide });
             if (hotseat) setAwaitingPass(true);
           }
@@ -470,7 +659,7 @@ export default function DuelClient() {
     [state],
   );
   const currentTip = useMemo<keyof TutorialFlags | null>(() => {
-    if (!state || hotseat) return null;
+    if (!state || hotseat || mpInfo) return null; // tips are for solo duels only
     if (tutorial.tipWelcome && state.phase === "MULLIGAN") return "tipWelcome";
     if (!isPlayerTurn) return null;
     if (tutorial.tipMana) return "tipMana";
@@ -487,7 +676,7 @@ export default function DuelClient() {
     if (tutorial.tipFatigue && state.players.A.deck.length <= 8) return "tipFatigue";
     if (tutorial.tipTempoAdvanced && state.turn >= 5) return "tipTempoAdvanced";
     return null;
-  }, [state, hotseat, tutorial, isPlayerTurn, hasPlayed, hasAttacked]);
+  }, [state, hotseat, mpInfo, tutorial, isPlayerTurn, hasPlayed, hasAttacked]);
 
   const dismissTip = useCallback((tip: keyof TutorialFlags) => {
     setTutorial((prev) => ({ ...prev, [tip]: false }));
@@ -558,15 +747,26 @@ export default function DuelClient() {
     setMulliganPicks(new Set());
   }, [mulliganSide]);
 
-  if (!state || (!bot && !hotseat)) {
+  if (!state || (!bot && !hotseat && !mp)) {
     return (
-      <main className="flex min-h-dvh items-center justify-center">
-        <p className="label-type animate-pulse text-sm text-graphite">Preparing the duel…</p>
+      <main className="flex min-h-dvh items-center justify-center px-6 text-center">
+        {mpError ? (
+          <div className="flex flex-col items-center gap-5">
+            <HandNote className="max-w-md text-2xl leading-snug">{mpError}</HandNote>
+            <Link href="/multiplayer" className="stamp-btn focus-ink label-type px-4 py-2 text-xs">
+              Back to the lobby
+            </Link>
+          </div>
+        ) : (
+          <p className="label-type animate-pulse text-sm text-graphite">
+            {mp ? "Opening the duel — waiting for both decks…" : "Preparing the duel…"}
+          </p>
+        )}
       </main>
     );
   }
 
-  const viewer: Side = hotseat ? state.current : "A";
+  const viewer: Side = mpInfo ? mpInfo.side : hotseat ? state.current : "A";
   const me = state.players[viewer];
   const foe = state.players[OTHER[viewer]];
   const targetingActive = !!targeting;
@@ -660,7 +860,7 @@ export default function DuelClient() {
                 {slashFor(`h:${OTHER[viewer]}`)}
               </>
             }
-            sub={bot ? `${bot.name} · ${bot.elo} MMR` : "challenger"}
+            sub={mpInfo ? "online rival" : bot ? `${bot.name} · ${bot.elo} MMR` : "challenger"}
           />
           <div className="flex flex-col items-end gap-1">
             <div className="flex -space-x-6">
@@ -875,7 +1075,7 @@ export default function DuelClient() {
 
       {/* ── mulligan overlay ── */}
       <AnimatePresence>
-        {mulliganSide !== null && (mulliganSide === "A" || hotseat) && !(hotseat && awaitingPass) && (
+        {mulliganSide !== null && (mulliganSide === "A" || hotseat || (mp && mulliganSide === viewer)) && !(hotseat && awaitingPass) && (
           <motion.div
             key="mulligan"
             className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 overflow-y-auto p-4 py-8 md:gap-6 md:p-6"
@@ -938,6 +1138,20 @@ export default function DuelClient() {
             </StampButton>
           </motion.div>
         )}
+        {/* online: the rival mulligans first (or second) — show their slot is pending */}
+        {mp && state.phase === "MULLIGAN" && mulliganSide !== null && mulliganSide !== viewer && !mpError && (
+          <motion.div
+            key="mulligan-wait"
+            className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 p-6 text-center"
+            style={{ background: "rgba(244,241,234,0.94)" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <Stamp className="text-3xl md:text-4xl">MULLIGAN</Stamp>
+            <HandNote className="text-xl leading-snug">your rival is shaping their opening hand — yours is next…</HandNote>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* ── end screen ── */}
@@ -974,6 +1188,15 @@ export default function DuelClient() {
                   {state.winner === "draw" ? "Both heroes fall together" : `${state.players[state.winner === "A" ? "A" : "B"].name} takes the duel`}
                 </div>
                 <HandNote className="mt-1 text-2xl">a friendly duel — the record book stays blank</HandNote>
+              </div>
+            ) : mpInfo ? (
+              <div className="flex flex-col items-center gap-2 text-center">
+                <div className="small-caps text-3xl font-semibold">
+                  {state.winner === "draw"
+                    ? "Both heroes fall together"
+                    : `${state.players[state.winner === "A" ? "A" : "B"].name} takes the duel`}
+                </div>
+                <HandNote className="mt-1 text-2xl">the tape was replayed and verified — the result stands</HandNote>
               </div>
             ) : result.campaign ? (
               <div className="flex flex-col items-center gap-2 text-center">
@@ -1031,9 +1254,15 @@ export default function DuelClient() {
               </>
             )}
             <div className="flex gap-4">
-              <StampButton size="lg" onClick={startMatch}>
-                Play Again
-              </StampButton>
+              {mpInfo ? (
+                <Link href="/multiplayer" className="stamp-btn focus-ink label-type px-8 py-4 text-lg">
+                  New Duel
+                </Link>
+              ) : (
+                <StampButton size="lg" onClick={startMatch}>
+                  Play Again
+                </StampButton>
+              )}
               <Link href="/" className="stamp-btn focus-ink label-type px-8 py-4 text-lg">
                 Home
               </Link>

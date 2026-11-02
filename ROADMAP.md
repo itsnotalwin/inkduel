@@ -169,11 +169,19 @@ features. Work top-down; each item is small and lands immediately.
 
 ## 6. Phase 3 — Play with humans (2–4 months, biggest lift)
 
-- [ ] **Real multiplayer** — design locked, see **`MULTIPLAYER.md`**: v0 is
-      deterministic lockstep over HTTP polling (no new infrastructure, open
-      deck lists), v1 migrates Prisma to Supabase Postgres and swaps the
-      poll loop for Realtime push, and ranked play moves to
-      server-authoritative redacted views for hand privacy.
+- [x] **Real multiplayer v0 — SHIPPED** (`60f54b1`+): lockstep duels over HTTP
+      polling, exactly per `MULTIPLAYER.md` — `/multiplayer` lobby with
+      6-char invite codes, online mode in the duel client (input gate,
+      optimistic apply, 1.2s poll, tape-based reconnect), and cheat-proof
+      **tape verification**: the server replays every duel through the
+      deterministic engine before recording ranked results for both players
+      (zero-sum Elo, ink, achievements). 7 contract tests cover the full
+      flow incl. a lied-about winner. Open deck lists by design (paper-TCG
+      night); hand privacy is v1.
+- [ ] **v1 Supabase migration + Realtime transport swap** (see §7 of
+      MULTIPLAYER.md) — needs a Supabase project.
+- [ ] **v1.1 server-authoritative redacted views** (hand privacy) for ranked.
+- [ ] **v1.2 matchmaking queue by MMR** (reuses the bot-pick logic).
 - [ ] **Friend challenges** — challenge links with a seeded duel; both players
       play the same seed vs the same AI and compare results (asynchronous
       "shadow duel") — a cheap stepping stone to live play.

@@ -154,6 +154,15 @@ export default function HomePage() {
                 or pass &amp; play with a friend →
               </HandNote>
             </Link>
+            <Link href="/multiplayer">
+              <motion.span
+                className="inline-block"
+                whileHover={{ rotate: 2, scale: 1.04 }}
+                whileTap={{ rotate: -1, scale: 0.97 }}
+              >
+                <StampButton>Duel a friend</StampButton>
+              </motion.span>
+            </Link>
             <HandNote className="text-2xl">← it only takes one pen</HandNote>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
