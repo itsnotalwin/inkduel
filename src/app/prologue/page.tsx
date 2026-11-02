@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useAnimationControls, useReducedMotion } from "framer-motion";
 import { HandNote, Panel, Stamp, StampButton, WashiTape } from "@/components/paper";
 import { ambient } from "@/lib/ambient";
 import { sound } from "@/lib/sound";
@@ -10,7 +10,7 @@ import { GAME_NAME } from "@/config";
 import manifest from "@/data/voice-lines.json";
 import {
   PROLOGUE_LINE_IDS,
-  playVoice,
+  playVoiceWithEnd,
   preloadVoice,
   readPrologueVoicePref,
   setPrologueVoicePref,
@@ -690,12 +690,21 @@ function QuillCounter({ label, play, reduce }: { label: string; play: boolean; r
 
 export default function ProloguePage() {
   const reduce = useReducedMotion() ?? false;
+  // the sheet shudders when an act card slams down
+  const sheetControls = useAnimationControls();
   const [frame, setFrame] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [started, setStarted] = useState(false); // the timer + narration wait for the Begin gesture
   const [voiceOn, setVoiceOn] = useState(true);
   const [slammed, setSlammed] = useState(false); // the PLAY stamp has landed on the finale
   const lastLineRef = useRef<string | null>(null);
+  const timersRef = useRef<number[]>([]);
+  useEffect(
+    () => () => {
+      for (const t of timersRef.current) window.clearTimeout(t);
+    },
+    [],
+  );
   const isFinal = frame >= FINAL_FRAME;
 
   const advance = useCallback(() => {
@@ -713,35 +722,46 @@ export default function ProloguePage() {
     return () => window.clearTimeout(t);
   }, []);
 
+  // THE DRIVER: with narration on, scene frames hold until the voice ends
+  // (plus a breath) — perfect sync. Act cards, the finale, reduced motion and
+  // voice-off fall back to the character-count timer.
   useEffect(() => {
-    if (!started || !playing || reduce || isFinal) return;
+    if (!started || !playing || isFinal) return;
     const f = FRAMES[frame];
-    const ms = f.kind === "act" ? ACT_CARD_MS : f.kind === "scene" ? holdFor(SCENES[f.scene].text) : ACT_CARD_MS;
-    const t = window.setTimeout(advance, ms);
+    const timedMs = f.kind === "act" ? ACT_CARD_MS : f.kind === "scene" ? holdFor(SCENES[f.scene].text) : ACT_CARD_MS;
+    if (voiceOn && !reduce && f.kind === "scene") {
+      const lineIndex = Math.min(f.scene, PROLOGUE_LINE_IDS.length - 1);
+      const id = PROLOGUE_LINE_IDS[lineIndex];
+      if (!id || lastLineRef.current === id) return;
+      lastLineRef.current = id;
+      let cancelled = false; // a stale end (we already moved on) must not cut the new line short
+      playVoiceWithEnd(id, undefined, () => {
+        if (!cancelled) {
+          const t = window.setTimeout(advance, 450);
+          timersRef.current.push(t);
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    const t = window.setTimeout(advance, timedMs);
     return () => window.clearTimeout(t);
-  }, [started, playing, frame, reduce, isFinal, advance]);
+  }, [started, playing, frame, reduce, isFinal, voiceOn, advance]);
 
   // page turns and act-card slams; a slowly brightening ambient bed follows the film
   useEffect(() => {
     if (!started || frame === 0) return;
     const f = FRAMES[frame];
-    if (f.kind === "act") sound.stampThunk();
-    else sound.paperSlide();
+    if (f.kind === "act") {
+      sound.stampThunk();
+      if (!reduce) {
+        void sheetControls.start({ x: [0, -8, 7, -4, 3, -1, 0], transition: { duration: 0.45, ease: "easeOut" } });
+      }
+    } else sound.paperSlide();
     ambient.setIntensity(Math.min(0.5, frame * 0.05));
     if (f.kind === "finale") ambient.setPhase("over");
-  }, [started, frame]);
-
-  // narration — each scene speaks its line once in the cast narrator's voice
-  // (toggling the local voice switch back on replays the current line)
-  useEffect(() => {
-    if (!started || !voiceOn) return;
-    const f = FRAMES[frame];
-    if (!f || f.kind !== "scene") return;
-    const id = PROLOGUE_LINE_IDS[Math.min(f.scene, PROLOGUE_LINE_IDS.length - 1)];
-    if (!id || lastLineRef.current === id) return;
-    lastLineRef.current = id;
-    playVoice(id);
-  }, [started, frame, voiceOn]);
+  }, [started, frame, reduce, sheetControls]);
 
   // the PLAY stamp lands once the table has sketched itself in
   useEffect(() => {
@@ -960,9 +980,10 @@ export default function ProloguePage() {
                 const headFilter = `ink-bleed-head-${frame}`;
                 return (
                   <>
-                    <div
+                    <motion.div
                       className="ink-frame relative w-full"
                       style={{ boxShadow: "0 24px 48px -22px rgba(23,20,15,0.5)", rotate: frame % 2 ? "0.35deg" : "-0.35deg" }}
+                      animate={sheetControls}
                     >
                       <WashiTape angle={frame % 2 ? 3 : -3} className="left-1/2 top-0 -translate-x-1/2" width={84} />
                       {isAct ? (
@@ -999,12 +1020,22 @@ export default function ProloguePage() {
                           </div>
                         ) : (
                           <>
-                            <div
-                              className="flex h-[34vh] w-full items-center justify-center p-2 sm:h-[42vh] sm:p-4"
+                            {/* Ken Burns: the art breathes while its line is read */}
+                            <motion.div
+                              className="flex h-[34vh] w-full items-center justify-center overflow-hidden p-2 sm:h-[42vh] sm:p-4"
                               style={{ filter: `url(#${artFilter})` }}
+                              initial={reduce ? false : { scale: 1, x: 0 }}
+                              animate={reduce ? false : { scale: 1.055, x: -10 }}
+                              transition={{ duration: 12, ease: "linear" }}
                             >
                               <Art play={!reduce} />
-                            </div>
+                            </motion.div>
+                            {/* vignette — the paper's edges fall away into the dark */}
+                            <div
+                              aria-hidden
+                              className="pointer-events-none absolute inset-0"
+                              style={{ background: "radial-gradient(ellipse at center, transparent 52%, rgba(23,20,15,0.16) 100%)" }}
+                            />
                             {!reduce && (
                               <motion.div
                                 aria-hidden
@@ -1021,7 +1052,7 @@ export default function ProloguePage() {
                           </>
                         )}
                       </div>
-                    </div>
+                    </motion.div>
                     {!isAct && (
                       <>
                         <InkBleed id={headFilter} play={!reduce} peak={7} seed={frame + 40} />

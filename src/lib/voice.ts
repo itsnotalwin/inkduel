@@ -73,16 +73,38 @@ function voiceUrl(id: string, voiceKey: string): string {
  * yet, the line is simply missed.
  */
 export function playVoice(id: string, voiceKey?: string): void {
-  if (typeof window === "undefined" || sound.muted) return;
+  playVoiceWithEnd(id, voiceKey, undefined);
+}
+
+/**
+ * Play a narrated line and fire `onEnded` exactly when the audio finishes —
+ * the prologue's scenes hold until their narrator stops talking, so voice and
+ * picture stay in sync. `onEnded` also fires on audio errors (a missing file
+ * must never stall the film); pausing (a new line cutting this one) does not.
+ */
+export function playVoiceWithEnd(
+  id: string,
+  voiceKey: string | undefined,
+  onEnded?: () => void,
+): void {
+  if (typeof window === "undefined") return;
+  if (sound.muted) {
+    onEnded?.();
+    return;
+  }
   stopVoice();
   const audio = new Audio(voiceUrl(id, voiceKey ?? readVoicePref()));
   audio.volume = 0.9;
   current = audio;
-  audio.addEventListener("ended", () => {
+  const done = () => {
     if (current === audio) current = null;
-  });
+    onEnded?.();
+  };
+  audio.addEventListener("ended", done, { once: true });
+  audio.addEventListener("error", done, { once: true });
   audio.play().catch(() => {
     if (current === audio) current = null;
+    onEnded?.();
   });
 }
 

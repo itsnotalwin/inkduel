@@ -12,7 +12,7 @@
     { "key": "sofia", "label": "Sofia (HeyGen)", "heygen": "zQDTlelC5IkNZLUKANwx", "ext": "wav" },
     { "key": "lisa", "label": "Lisa (HeyGen)", "heygen": "ZkDLMKbxPeseUTd14irT", "ext": "wav" }
   ],
-  "narratorDefault": "guy",
+  "narratorDefault": "coleridge",
   "lines": [
     { "id": "prologue-1", "text": "Every story in the archive starts with a blank page. This one starts with you.", "group": "prologue" },
     { "id": "world-1", "text": "Before the first word, the Blank Page was hungry.", "group": "prologue" },

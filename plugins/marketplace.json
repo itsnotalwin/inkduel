@@ -1,0 +1,13 @@
+{
+  "name": "dev-rea-market",
+  "plugins": [
+    {
+      "name": "rea",
+      "source": "./rea",
+      "version": "0.1.0",
+      "description": "Reverse engineering with REA: wires the REA MCP server (npm package rea-agents) into ZCode and bundles a workflow skill for evidence-driven analysis of native binaries, JavaScript/Electron apps, packages, firmware and more.",
+      "displayName": "REA — Reverse Engineer Anything",
+      "category": "developer-tools"
+    }
+  ]
+}
