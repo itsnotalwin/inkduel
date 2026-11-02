@@ -6,6 +6,7 @@
  * The UI drains `state.events` for animations via drainEvents().
  */
 import { getCard, type CardDef, type Effect, type Keyword } from "./cards";
+import type { TableMutation } from "./blot";
 import { BOARD_SLOTS, HERO_HP, MANA_CAP, START_HAND, STARTING_MANA } from "@/config";
 
 // ── Core types ──────────────────────────────────────────────────────────
@@ -98,6 +99,8 @@ export interface GameState {
   areas: Record<Side, string | null>;
   /** Total damage dealt by the player (side A) this turn — for achievements. */
   damageThisTurn: { side: Side; n: number; kills: number };
+  /** THE BLOT SPREADS — this week's table mutation, if the duel carries one. */
+  mutation?: TableMutation | null;
 }
 
 // ── RNG (mulberry32, deterministic) ─────────────────────────────────────
@@ -140,7 +143,7 @@ function makePlayer(side: Side, name: string, deck: string[]): PlayerState {
   };
 }
 
-export function createGame(seed: number, deckA: string[], deckB: string[], first: Side, nameA = "You", nameB = "Opponent"): GameState {
+export function createGame(seed: number, deckA: string[], deckB: string[], first: Side, nameA = "You", nameB = "Opponent", mutation?: TableMutation): GameState {
   const state: GameState = {
     seed,
     rngState: seed | 0,
@@ -159,7 +162,13 @@ export function createGame(seed: number, deckA: string[], deckB: string[], first
     log: [{ turn: 0, side: "sys", text: "The duel begins. Ink meets paper." }],
     mulliganDone: { A: false, B: false },
     damageThisTurn: { side: first, n: 0, kills: 0 },
+    mutation: mutation ?? null,
   };
+  // THE BLOT SPREADS: a table mutation may start both heroes at less than full HP.
+  if (mutation?.heroHp !== undefined) {
+    state.players.A.heroHp = mutation.heroHp;
+    state.players.B.heroHp = mutation.heroHp;
+  }
   for (const side of ["A", "B"] as Side[]) {
     shuffle(state, state.players[side].deck);
     for (let i = 0; i < START_HAND; i++) drawCard(state, side, false);
@@ -538,8 +547,8 @@ function startTurn(s: GameState, side: Side): void {
   p.tempMana = 0;
   // Per-side mana clock — "turn 1 = 3 crystals, +1 per turn, cap 10" counts each
   // player's own turns, keeping games fully fair (§6); the Tempo Token is the
-  // second player's only edge.
-  p.maxMana = Math.min(MANA_CAP, STARTING_MANA + (s.sideTurns[side] - 1));  p.mana = Math.min(MANA_CAP, p.maxMana + p.tempMana);
+  // second player's only edge. THE BLOT SPREADS may raise every turn's floor.
+  p.maxMana = Math.min(MANA_CAP, STARTING_MANA + (s.sideTurns[side] - 1) + (s.mutation?.extraStartingMana ?? 0));  p.mana = Math.min(MANA_CAP, p.maxMana + p.tempMana);
   for (const u of p.board) {
     u.sick = false;
     u.attacksLeft = u.keywords.includes("twinstrike") ? 2 : 1;
@@ -597,6 +606,15 @@ export function cardCost(cardId: string): number {
   return getCard(cardId).cost;
 }
 
+/**
+ * The ink a card really costs at this table. THE BLOT SPREADS may tax spells
+ * (+N ink); units and areas always cost their printed cost. Legality checks,
+ * payment, and the UI must all read the cost through here so they agree.
+ */
+export function effectiveCost(s: GameState, def: CardDef): number {
+  return def.cost + (def.type === "spell" ? (s.mutation?.spellTax ?? 0) : 0);
+}
+
 function boardFull(s: GameState, side: Side): boolean {
   return player(s, side).board.length >= BOARD_SLOTS;
 }
@@ -607,14 +625,14 @@ function playCard(s: GameState, side: Side, handUid: string, target: Target | un
   if (idx < 0) return;
   const inst = p.hand[idx];
   const def = getCard(inst.cardId);
-  if (def.cost > p.mana) return;
+  if (effectiveCost(s, def) > p.mana) return;
   const targetUid = target && "uid" in target ? target.uid : undefined;
 
   // Areas occupy their own slot and rewrite the table's rules while they last.
   // Playing a new one replaces the old (which is discarded).
   if (def.type === "area") {
     p.hand.splice(idx, 1);
-    p.mana -= def.cost;
+    p.mana -= effectiveCost(s, def);
     const replaced = s.areas[side];
     s.areas[side] = def.id;
     s.events.push({ type: "AREA_PLAYED", side, cardId: def.id });
@@ -645,7 +663,7 @@ function playCard(s: GameState, side: Side, handUid: string, target: Target | un
     p.board.push(u);
     s.events.push({ type: "PLAY_CARD", side, cardId: def.id, uid: u.uid });
     s.log.push({ turn: s.sideTurns[side], side, text: `${p.name} plays ${def.name}.` });
-    p.mana -= def.cost;
+    p.mana -= effectiveCost(s, def);
     // Insight keyword: draw 1 when played
     if (def.keywords?.includes("insight")) {
       drawCard(s, side);
@@ -675,7 +693,7 @@ function playCard(s: GameState, side: Side, handUid: string, target: Target | un
   } else {
     // spell
     p.hand.splice(idx, 1);
-    p.mana -= def.cost;
+    p.mana -= effectiveCost(s, def);
     s.events.push({ type: "SPELL", side, cardId: def.id });
     s.log.push({ turn: s.sideTurns[side], side, text: `${p.name} casts ${def.name}.` });
     if (def.onPlay) {
@@ -814,7 +832,7 @@ export function getLegalActions(s: GameState): LegalActions {
   const p = player(s, side);
   for (const inst of p.hand) {
     const def = getCard(inst.cardId);
-    if (def.cost > p.mana) continue;
+    if (effectiveCost(s, def) > p.mana) continue;
     if (def.type === "unit" && boardFull(s, side)) continue;
     const { targets, required } = legalTargetsForCard(s, side, def);
     // a card that requires a target but has none is unplayable

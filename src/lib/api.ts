@@ -454,6 +454,8 @@ export interface MpStateData {
   playerBName: string | null;
   deckA: MpDeckList[] | null;
   deckB: MpDeckList[] | null;
+  /** The duel's shared seed — lets a read-only spectator replay the tape. */
+  seed: number;
 }
 
 export interface MpResultPayload {
@@ -526,6 +528,18 @@ export function mpState(duelId: string, since: number): Promise<MpStateData | nu
   return request<MpStateData>(
     `/api/mp/state?duelId=${encodeURIComponent(duelId)}&since=${Number.isFinite(since) ? Math.max(0, Math.floor(since)) : 0}`,
   );
+}
+
+/** Spectator poll: same MpStateData envelope, but the duel may be addressed by
+ *  invite code and `since` is passed raw — -1 asks for the whole tape (the
+ *  server is exclusive in `since`, so -1 includes seq 0). Read-only. */
+export function mpSpectate(params: { code?: string; duelId?: string }, since: number): Promise<MpStateData | null> {
+  const q =
+    params.code !== undefined
+      ? `code=${encodeURIComponent(params.code)}`
+      : `duelId=${encodeURIComponent(params.duelId ?? "")}`;
+  const s = Number.isFinite(since) ? Math.floor(since) : -1;
+  return request<MpStateData>(`/api/mp/state?${q}&since=${s}`);
 }
 
 /** Report the observed final state; the server verifies it by replaying the tape. */

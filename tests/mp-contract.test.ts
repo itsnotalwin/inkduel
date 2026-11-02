@@ -346,6 +346,23 @@ describe("multiplayer v0 (lockstep over polling)", () => {
     );
   });
 
+  it("reads the state by invite code for spectators", async () => {
+    // by code: the same response the duelId path gives, plus the seed for
+    // a read-only spectator to replay the tape with
+    const byCode = await expectOk(mpStateGet(new Request(`${BASE}/api/mp/state?code=${duel2.code}&since=0`)));
+    const byId = await expectOk(mpStateGet(new Request(`${BASE}/api/mp/state?duelId=${duel2.id}&since=0`)));
+    expect(byCode).toEqual(byId);
+    expect(byCode.status).toBe("active");
+    expect(typeof byCode.seed).toBe("number");
+    // codes are unambiguous uppercase alphanumerics, but the lookup is case-safe
+    const lower = await expectOk(mpStateGet(new Request(`${BASE}/api/mp/state?code=${duel2.code.toLowerCase()}&since=0`)));
+    expect(lower.status).toBe("active");
+    // an unknown code is the same 404 as an unknown duelId
+    await expectFail(mpStateGet(new Request(`${BASE}/api/mp/state?code=ZZZZZZ&since=0`)), 404);
+    // neither duelId nor code → 404
+    await expectFail(mpStateGet(new Request(`${BASE}/api/mp/state?since=0`)), 404);
+  });
+
   it("rejects a result the tape does not support, recording nothing", async () => {
     // duel2 has only A's mulligan on the tape — no winner exists there
     jar.set(SESSION_COOKIE, tokenA);

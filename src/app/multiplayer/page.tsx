@@ -16,6 +16,9 @@ import { ARCHETYPE_DECKS } from "@/game/cards";
 
 const POLL_MS = 1500;
 
+/** Pages deploys live under /inkduel — copied links must carry the basePath. */
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 export default function MultiplayerPage() {
   const router = useRouter();
   const [name, setName] = useState("Scribe");
@@ -27,6 +30,7 @@ export default function MultiplayerPage() {
   const [created, setCreated] = useState<{ duelId: string; code: string } | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [spectateCopied, setSpectateCopied] = useState(false);
 
   // join flow
   const [codeInput, setCodeInput] = useState("");
@@ -92,6 +96,14 @@ export default function MultiplayerPage() {
     setCreated({ duelId: data.duelId, code: data.code });
   }, [name, deck]);
 
+  const onCopySpectateLink = useCallback(() => {
+    if (!created) return;
+    const url = `${window.location.origin}${BASE_PATH}/spectate?code=${created.code}`;
+    void navigator.clipboard?.writeText(url).catch(() => {});
+    setSpectateCopied(true);
+    window.setTimeout(() => setSpectateCopied(false), 2500);
+  }, [created]);
+
   const onJoin = useCallback(async () => {
     const code = codeInput.trim().toUpperCase();
     if (code.length !== 6) return;
@@ -151,6 +163,17 @@ export default function MultiplayerPage() {
                 <WaitingDots />
                 <span className="mt-1 block text-lg">anyone with this code joins your table</span>
               </HandNote>
+              <div className="label-type flex items-center gap-2 text-[10px] text-graphite">
+                <span>or send spectators: /spectate?code={created.code}</span>
+                <button
+                  type="button"
+                  className="focus-ink underline underline-offset-4"
+                  onClick={onCopySpectateLink}
+                  title="Copy a read-only spectator link for this duel"
+                >
+                  {spectateCopied ? "Copied!" : "Copy"}
+                </button>
+              </div>
               <button
                 type="button"
                 className="focus-ink label-type text-[10px] text-graphite underline underline-offset-4"

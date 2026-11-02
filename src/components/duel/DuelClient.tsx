@@ -18,6 +18,7 @@ import {
 import { ARCHETYPE_DECKS, getCard, type Wash } from "@/game/cards";
 import { expandDeck, type DeckEntry } from "@/game/decks";
 import { DECK_PICKS, DRAFT_STASH_KEY } from "@/game/draft";
+import { blotMutationFor } from "@/game/blot";
 import { campaignStage } from "@/game/campaign";
 import { decideAction, mulliganAction, pickBot, botDeckIds, type BotProfile } from "@/game/ai";
 import { eloDelta } from "@/lib/elo";
@@ -380,12 +381,18 @@ export default function DuelClient() {
     const chosenBot = stage
       ? { key: stage.policy as BotProfile["key"], name: stage.name, elo: 900 + stage.index * 50, blurb: stage.blurb }
       : pickBot(playerMmr);
+    // THE BLOT SPREADS: ordinary bot duels carry this week's table mutation —
+    // campaign stages are authored and stay clean, mp duels stay symmetric.
+    const blot = stage ? undefined : blotMutationFor(Date.now());
     const matchSeed = Math.floor(Math.random() * 2 ** 31);
     // bot decks are already expanded id lists; campaign stages carry
-    // {cardId,count} entries — normalize both to id lists for createGame
+    // {cardId,count} entries — normalize both to id lists for createGame.
+    // THE SHADOW MIRROR: the rival plays YOUR exact list.
     const botDeck: string[] = stage
       ? expandDeck(stage.deck.map(([cardId, count]) => ({ cardId, count })))
-      : botDeckIds(chosenBot.key, matchSeed);
+      : blot?.key === "the-shadow-mirror"
+        ? expandDeck(deckEntries as DeckEntry[])
+        : botDeckIds(chosenBot.key, matchSeed);
     statsRef.current = {
       maxTurnDamage: 0,
       maxTurnKills: 0,
@@ -402,7 +409,7 @@ export default function DuelClient() {
     setResult(null);
     setTimer(TURN_SECONDS);
     setState(
-      createGame(matchSeed, expandDeck(deckEntries as DeckEntry[]), botDeck, "A", localName(), chosenBot.name),
+      createGame(matchSeed, expandDeck(deckEntries as DeckEntry[]), botDeck, "A", localName(), chosenBot.name, blot),
     );
   }, [hotseat, draft, searchParams, mpInfo, setupMp]);
 
@@ -1165,6 +1172,20 @@ export default function DuelClient() {
 
       {/* top-left controls */}
       <div className="fixed left-3 top-3 z-30 flex gap-2">
+        {state.mutation && (
+          <span
+            className="label-type self-center px-2.5 py-1.5 text-xs"
+            title={state.mutation.blurb}
+            style={{
+              color: "var(--color-red-stamp)",
+              border: "1.5px solid var(--color-red-stamp)",
+              borderRadius: "10px 8px 12px 9px / 8px 12px 9px 10px",
+              background: "var(--color-cardstock)",
+            }}
+          >
+            THE BLOT SPREADS · {state.mutation.name}
+          </span>
+        )}
         <StampButton size="sm" onClick={() => setLogOpen((v) => !v)}>
           Log
         </StampButton>

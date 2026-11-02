@@ -9,6 +9,7 @@ import { HandNote, StampButton, Stamp, WashiTape } from "@/components/paper";
 import { RankBadge } from "@/components/rank-badge";
 import { CardFace } from "@/components/card/CardFace";
 import { getCard } from "@/game/cards";
+import { blotActiveMutationFor, type TableMutation } from "@/game/blot";
 import { GAME_NAME, GAME_TAGLINE, type RankKey } from "@/config";
 import { DEFAULT_VOICE, VOICES, readVoicePref, setVoicePref } from "@/lib/voice";
 
@@ -40,6 +41,8 @@ export default function HomePage() {
   const [meta, setMeta] = useState<MetaData | null>(null);
   const [playHref, setPlayHref] = useState("/duel");
   const [narrator, setNarrator] = useState<string>(DEFAULT_VOICE);
+  // THE BLOT SPREADS — this week's table mutation (pure date math, no fetch)
+  const [blot, setBlot] = useState<TableMutation | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -50,6 +53,7 @@ export default function HomePage() {
         setPlayHref("/prologue");
       }
       setNarrator(readVoicePref());
+      setBlot(blotActiveMutationFor(Date.now()));
       await ensureGuest();
       const [meData, q, m] = await Promise.all([getMe(), getQuestToday(), getMeta()]);
       setMe(meData);
@@ -174,6 +178,11 @@ export default function HomePage() {
             </Link>
             <HandNote className="text-2xl">← it only takes one pen</HandNote>
           </div>
+          {blot && (
+            <p className="label-type mt-2 text-[11px]" style={{ color: "var(--color-red-stamp)" }} title={blot.blurb}>
+              THE BLOT SPREADS · {blot.name}
+            </p>
+          )}
           <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
             <Link href="/prologue">
               <StampButton size="sm">Rewatch the intro</StampButton>
