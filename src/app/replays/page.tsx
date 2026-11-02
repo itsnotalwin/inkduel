@@ -75,6 +75,11 @@ function ReplayInner() {
   const [base, setBase] = useState<GameState | null>(null);
 
   useEffect(() => {
+    // no id at all — the match list lives on the profile, don't dead-end here
+    if (!matchId) {
+      window.location.replace(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/profile`);
+      return;
+    }
     void (async () => {
       const m = await getMatch(matchId);
       if (!m || !m.actions) {
