@@ -10,6 +10,7 @@ import { RankBadge } from "@/components/rank-badge";
 import { CardFace } from "@/components/card/CardFace";
 import { getCard } from "@/game/cards";
 import { GAME_NAME, GAME_TAGLINE, type RankKey } from "@/config";
+import { DEFAULT_VOICE, VOICES, readVoicePref, setVoicePref } from "@/lib/voice";
 
 const SPOTLIGHT = ["paper_swan", "ink_blot", "red_pen", "the_calligrapher"].map(getCard);
 
@@ -38,6 +39,7 @@ export default function HomePage() {
   const [quest, setQuest] = useState<QuestDto | null>(null);
   const [meta, setMeta] = useState<MetaData | null>(null);
   const [playHref, setPlayHref] = useState("/duel");
+  const [narrator, setNarrator] = useState<string>(DEFAULT_VOICE);
 
   useEffect(() => {
     void (async () => {
@@ -47,6 +49,7 @@ export default function HomePage() {
       } else {
         setPlayHref("/prologue");
       }
+      setNarrator(readVoicePref());
       await ensureGuest();
       const [meData, q, m] = await Promise.all([getMe(), getQuestToday(), getMeta()]);
       setMe(meData);
@@ -153,7 +156,29 @@ export default function HomePage() {
             </Link>
             <HandNote className="text-2xl">← it only takes one pen</HandNote>
           </div>
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <Link href="/prologue">
+              <StampButton size="sm">Rewatch the intro</StampButton>
+            </Link>
+            <label className="label-type flex items-center gap-2 text-[10px] text-graphite">
+              NARRATOR
+              <select
+                value={narrator}
+                aria-label="Narrator voice"
+                onChange={(e) => {
+                  setNarrator(e.target.value);
+                  setVoicePref(e.target.value);
+                }}
+                className="ink-frame-thin px-2 py-1 text-[11px]"
+                style={{ fontFamily: "var(--font-type)", background: "var(--color-cardstock)" }}
+              >
+                {VOICES.map((v) => (
+                  <option key={v.key} value={v.key}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               type="button"
               className="focus-ink label-type text-[10px] text-graphite underline underline-offset-4"

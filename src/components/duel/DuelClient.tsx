@@ -25,6 +25,7 @@ import { ambient } from "@/lib/ambient";
 import { completeCampaignStage, ensureGuest, getDecks, postMatch, type CampaignResult, type MatchPostResult } from "@/lib/api";
 import { LegendaryFlourish, type FlourishState } from "./LegendaryFlourish";
 import { bumpDuelCount, dismissTutorialTip, readDuelCount, readTutorialFlags, TutorialTip, type TutorialFlags } from "@/components/onboarding/Tutorial";
+import { playVoice } from "@/lib/voice";
 import { CardFace } from "@/components/card/CardFace";
 import { StampButton, Stamp, HandNote, WashiTape } from "@/components/paper";
 import {
@@ -220,6 +221,8 @@ export default function DuelClient() {
               next.flourish = { id: animId++, cardId: e.cardId, side: e.side };
               // signature motif, hashed from the card id — each legendary sounds like itself
               sound.legendaryMotif(e.cardId);
+              // voiced lore for the legendaries that have one; the rest stay silent
+              playVoice(`legendary-${e.cardId.replace(/_/g, "-")}`);
               window.setTimeout(() => setAnim((cur) => ({ ...cur, flourish: null })), 2000);
             }
             break;

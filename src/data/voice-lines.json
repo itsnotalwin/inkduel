@@ -1,0 +1,36 @@
+{
+  "version": 2,
+  "$comment": "Voice-line manifest — the contract between generation (scripts/voicegen.mjs) and playback (src/lib/voice.ts). Files live in public/voice/<id>.<voiceKey>.<ext> and stream lazily (never precached): voice lines are a progressive enhancement and are simply silent offline. Each voice carries its per-provider synthesis name and a file extension (msedge = mp3, heygen = wav).",
+  "sampleText": "Every story in the archive starts with a blank page. This one starts with you.",
+  "voices": [
+    { "key": "guy", "label": "The Clerk (steady)", "msedge": "en-US-GuyNeural", "openrouter": "onyx", "ext": "mp3" },
+    { "key": "ava", "label": "The Illustrator (bright)", "msedge": "en-US-AvaNeural", "openrouter": "nova", "ext": "mp3" },
+    { "key": "ryan", "label": "The Archivist (proper)", "msedge": "en-GB-RyanNeural", "openrouter": "echo", "ext": "mp3" },
+    { "key": "andrew", "label": "The Doodler (warm)", "msedge": "en-US-AndrewNeural", "openrouter": "fable", "ext": "mp3" },
+    { "key": "nadine", "label": "Nadine (HeyGen)", "heygen": "83548de556df48ba8c09c42a57c51d85", "ext": "wav" },
+    { "key": "coleridge", "label": "Coleridge (HeyGen)", "heygen": "Yy3xSIdKtprBvGvX4ZBJ", "ext": "wav" },
+    { "key": "sofia", "label": "Sofia (HeyGen)", "heygen": "zQDTlelC5IkNZLUKANwx", "ext": "wav" },
+    { "key": "lisa", "label": "Lisa (HeyGen)", "heygen": "ZkDLMKbxPeseUTd14irT", "ext": "wav" }
+  ],
+  "narratorDefault": "guy",
+  "lines": [
+    { "id": "prologue-1", "text": "Every story in the archive starts with a blank page. This one starts with you.", "group": "prologue" },
+    { "id": "world-1", "text": "Before the first word, the Blank Page was hungry.", "group": "prologue" },
+    { "id": "world-2", "text": "From ink and fold, the Bureau of Written Things gave every sketch a name, every scribble a soul. Paper swans carried the mail. Paper dragons guarded the vaults. It was a quiet century.", "group": "prologue" },
+    { "id": "world-3", "text": "Then came the Great Blot. Nobody knows who spilled it. Everybody knows what it drank: the ink from the shelves, the names of the heroes. It left the archive half-erased.", "group": "prologue" },
+    { "id": "world-4", "text": "The Head Archivist sealed the wing, burned the catalog, and spoke the First Rule: nothing written shall be trusted.", "group": "prologue" },
+    { "id": "rise-1", "text": "You were born after the silence. A Doodler with a blunt pencil and a bad reputation — and every legend starts as a doodle in a margin.", "group": "prologue" },
+    { "id": "prologue-2", "text": "Ink is power here. Spend it wisely, and the paper bends to your will.", "group": "prologue" },
+    { "id": "prologue-3", "text": "They will mock you first. The Doodler always laughs last.", "group": "prologue" },
+    { "id": "duel-1", "text": "The Archivists' Duels were built to find one thing: a hand strong enough to rewrite the Rule.", "group": "prologue" },
+    { "id": "prologue-4", "text": "Fold your strategy. Guard your hero. And when the moment comes — strike.", "group": "prologue" },
+    { "id": "duel-2", "text": "The pages remember every duel ever fought. Today, they will remember yours.", "group": "prologue" },
+    { "id": "prologue-5", "text": "The duel begins. Try not to smudge.", "group": "prologue" },
+    { "id": "post-1", "text": "And somewhere behind the sealed wing, the Head Archivist is already reading your name.", "group": "prologue" },
+    { "id": "victory", "text": "The page is won. Write your name on it.", "group": "sting" },
+    { "id": "defeat", "text": "Blotted out. Every draft deserves a second chance.", "group": "sting" },
+    { "id": "legendary-the-archivist", "text": "Knows where everything is. Including you.", "group": "legendary" },
+    { "id": "legendary-the-second-edition", "text": "Revised. Expanded. Unstoppable.", "group": "legendary" },
+    { "id": "legendary-the-collected-works", "text": "Everything ever written, bound against you.", "group": "legendary" }
+  ]
+}

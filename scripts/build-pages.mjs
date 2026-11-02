@@ -62,6 +62,7 @@ try {
 
 if (code === 0) {
   // inject every hashed asset into the service-worker precache list
+  // voice files (public/voice/*.mp3) are runtime-streamed, never precached — silent offline is fine
   const assets = [];
   const walk = (dir) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
