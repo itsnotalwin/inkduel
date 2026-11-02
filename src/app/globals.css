@@ -24,6 +24,18 @@
   --cut-a: 12px 9px 13px 8px / 9px 12px 8px 13px;
   --cut-b: 8px 13px 9px 12px / 13px 8px 12px 9px;
   --unit-w: 60px;
+
+  /* Area washes — the one sanctioned tinted accent (engine areas). Every wash
+     is mixed strictly from the existing ink / paper / red-stamp family, so the
+     monochrome identity holds: sepia and slate are light paper tints, while
+     graphite, rose and crimson carry the ink or stamp color at low alpha.
+     These live in plain :root (not @theme) because they are consumed from
+     inline styles, which Tailwind's theme tree-shaking cannot see. */
+  --wash-sepia: color-mix(in srgb, var(--color-red-stamp) 30%, var(--color-paper-deep) 70%);
+  --wash-slate: color-mix(in srgb, var(--color-ink) 22%, var(--color-paper) 78%);
+  --wash-graphite: color-mix(in srgb, var(--color-ink) 24%, transparent);
+  --wash-rose: color-mix(in srgb, var(--color-red-stamp) 26%, transparent);
+  --wash-crimson: color-mix(in srgb, var(--color-red-stamp) 50%, transparent);
 }
 
 @media (min-width: 640px) {

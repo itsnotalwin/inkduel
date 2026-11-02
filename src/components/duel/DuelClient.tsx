@@ -15,7 +15,7 @@ import {
   type Side,
   type Target,
 } from "@/game/engine";
-import { ARCHETYPE_DECKS, getCard } from "@/game/cards";
+import { ARCHETYPE_DECKS, getCard, type Wash } from "@/game/cards";
 import { expandDeck, type DeckEntry } from "@/game/decks";
 import { campaignStage } from "@/game/campaign";
 import { decideAction, mulliganAction, pickBot, botDeckIds, type BotProfile } from "@/game/ai";
@@ -26,7 +26,7 @@ import { completeCampaignStage, ensureGuest, getDecks, mpAction, mpResult, mpSta
 import { LegendaryFlourish, type FlourishState } from "./LegendaryFlourish";
 import { bumpDuelCount, dismissTutorialTip, readDuelCount, readTutorialFlags, TutorialTip, type TutorialFlags } from "@/components/onboarding/Tutorial";
 import { playVoice } from "@/lib/voice";
-import { CardFace } from "@/components/card/CardFace";
+import { CardFace, WASH_VAR, washInk } from "@/components/card/CardFace";
 import { StampButton, Stamp, HandNote, WashiTape } from "@/components/paper";
 import {
   BoardUnit,
@@ -93,6 +93,93 @@ function localDeck(): DeckEntry[] {
     }
   }
   return ARCHETYPE_DECKS.duelist.cards.map(([cardId, count]) => ({ cardId, count }));
+}
+
+/** The per-side area slot: the active area's mini card face, or bare dashed
+ *  paper while the table is unwashed. Areas are played from the hand, so the
+ *  slot itself is never a button — only hover reveals the rules. */
+function AreaSlot({ cardId, tipBelow = false }: { cardId: string | null; tipBelow?: boolean }) {
+  const def = cardId ? getCard(cardId) : null;
+  return (
+    <div className="group relative shrink-0" style={{ width: "clamp(48px, 9vw, 64px)" }}>
+      {def ? (
+        <CardFace card={def} size="token" className="!w-full" />
+      ) : (
+        <div
+          aria-label="Area slot — empty"
+          title="Areas are set out from your hand"
+          className="flex items-center justify-center"
+          style={{
+            aspectRatio: "5 / 7",
+            border: "2px dashed color-mix(in srgb, var(--color-pencil) 75%, transparent)",
+            borderRadius: "8px 13px 9px 12px / 13px 8px 12px 9px",
+          }}
+        >
+          <span
+            className="label-type text-center"
+            style={{ fontSize: "clamp(6px, 1.1vw, 8px)", lineHeight: 1.5, color: "var(--color-pencil)" }}
+          >
+            SET AN
+            <br />
+            AREA
+          </span>
+        </div>
+      )}
+      {/* rules tooltip — below the opponent's slot, above your own */}
+      <div
+        className={`pointer-events-none absolute left-1/2 z-40 hidden w-44 -translate-x-1/2 group-hover:block ${
+          tipBelow ? "top-full mt-2" : "bottom-full mb-2"
+        }`}
+        role="tooltip"
+      >
+        <div
+          className="ink-frame px-2.5 py-2 text-center"
+          style={{ background: "var(--color-cardstock)", boxShadow: "2px 3px 6px rgba(23,20,15,0.25)" }}
+        >
+          {def ? (
+            <>
+              <div className="label-type text-[9px]" style={{ color: def.wash ? washInk(def.wash) : "var(--color-ink)" }}>
+                AREA · {def.name}
+              </div>
+              <p className="mt-1 text-[11px] leading-snug" style={{ fontFamily: "var(--font-type)" }}>
+                {def.text}
+              </p>
+            </>
+          ) : (
+            <p className="text-[11px] leading-snug" style={{ fontFamily: "var(--font-type)" }}>
+              play an area card from your hand — it tints your side of the table
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** The soft wash an active area lays over its side of the board — a slow
+ *  600ms tint bloom in from AREA_PLAYED, a fade out on replacement. */
+function BoardWash({ wash, reduce }: { wash: Wash | undefined; reduce: boolean }) {
+  return (
+    <AnimatePresence>
+      {wash && (
+        <motion.div
+          key={wash}
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          initial={reduce ? { opacity: 0.45 } : { opacity: 0 }}
+          animate={{ opacity: 0.45 }}
+          exit={reduce ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transition: { duration: 0.5, ease: "easeInOut" } }}
+          transition={{ duration: 0.6, ease: "easeInOut" }}
+          style={{ background: WASH_VAR[wash] }}
+        />
+      )}
+    </AnimatePresence>
+  );
+}
+
+/** The wash hue of the area a side currently has set out (undefined = bare paper). */
+function areaWashOf(cardId: string | null): Wash | undefined {
+  return cardId ? getCard(cardId).wash : undefined;
 }
 
 export default function DuelClient() {
@@ -305,6 +392,15 @@ export default function DuelClient() {
             break;
           case "SUMMON":
             sound.pop();
+            break;
+          case "AREA_PLAYED":
+            // a fresh sheet is laid on the table — the 600ms wash bloom on the
+            // board row animates off state, the slide carries the sound here
+            sound.paperSlide();
+            break;
+          case "AREA_REPLACED":
+            // the old wash fades out via AnimatePresence on the board overlay;
+            // the AREA_PLAYED slide in the same drain keeps the sound subtle
             break;
           case "ATTACK": {
             next.slash = {
@@ -864,6 +960,8 @@ export default function DuelClient() {
             }
             sub={mpInfo ? "online rival" : bot ? `${bot.name} · ${bot.elo} MMR` : "challenger"}
           />
+          {/* the rival's area slot — its wash covers their half of the table */}
+          <AreaSlot cardId={state.areas[OTHER[viewer]]} tipBelow />
           <div className="flex flex-col items-end gap-1">
             <div className="flex -space-x-6">
               {foe.hand.map((c) => (
@@ -876,7 +974,8 @@ export default function DuelClient() {
         </section>
 
         {/* ── enemy board ── */}
-        <section className="ruled mx-2 mt-3 flex min-h-[24vh] flex-1 items-center justify-center gap-1.5 px-2 py-3 md:mx-8 md:gap-3 md:px-4" style={{ background: "var(--color-paper-deep)" }}>
+        <section className="ruled relative mx-2 mt-3 flex min-h-[24vh] flex-1 items-center justify-center gap-1.5 px-2 py-3 md:mx-8 md:gap-3 md:px-4" style={{ background: "var(--color-paper-deep)" }}>
+          <BoardWash wash={areaWashOf(state.areas[OTHER[viewer]])} reduce={!!reduce} />
           <div className="flex items-center gap-1.5 md:gap-3">{slotCells(OTHER[viewer])}</div>
         </section>
 
@@ -889,7 +988,8 @@ export default function DuelClient() {
         </div>
 
         {/* ── player board ── */}
-        <section className="ruled mx-2 flex min-h-[24vh] flex-1 items-center justify-center gap-1.5 px-2 py-3 md:mx-8 md:gap-3 md:px-4" style={{ background: "var(--color-paper-deep)" }}>
+        <section className="ruled relative mx-2 flex min-h-[24vh] flex-1 items-center justify-center gap-1.5 px-2 py-3 md:mx-8 md:gap-3 md:px-4" style={{ background: "var(--color-paper-deep)" }}>
+          <BoardWash wash={areaWashOf(state.areas[viewer])} reduce={!!reduce} />
           <div className="flex items-center gap-1.5 md:gap-3">{slotCells(viewer)}</div>
         </section>
 
@@ -912,6 +1012,8 @@ export default function DuelClient() {
             }
             sub={`Mana ${me.mana}/${me.maxMana}`}
           />
+          {/* your area slot — set one out from the hand to claim the table */}
+          <AreaSlot cardId={state.areas[viewer]} />
           <div className="flex flex-col items-center gap-1 pb-2">
             <ManaCrystals available={me.mana} cap={me.maxMana} temp={me.tempMana} />
             <StampButton
@@ -943,6 +1045,7 @@ export default function DuelClient() {
               const overlap = n <= 5 ? 12 : n <= 7 ? 26 : 44;
               const selected = targeting?.uid === card.uid;
               const def = getCard(card.cardId);
+              const isArea = def.type === "area" && !!def.wash;
               return (
                 <motion.div
                   key={card.uid}
@@ -957,15 +1060,26 @@ export default function DuelClient() {
                     type="button"
                     className={`focus-ink block ${playable ? "cursor-pointer" : "cursor-default"}`}
                     onClick={() => onHandCardClick(card.uid)}
-                    aria-label={`Play ${def.name}`}
+                    aria-label={`${def.type === "area" ? "Set out" : "Play"} ${def.name}`}
                   >
-                    <CardFace
-                      card={def}
-                      size="hand"
-                      rotation={0}
-                      highlight={selected}
-                      dimmed={targetingActive && !selected}
-                    />
+                    <div
+                      style={
+                        isArea
+                          ? {
+                              borderRadius: "var(--cut-b)",
+                              boxShadow: `0 0 0 2.5px ${washInk(def.wash as Wash)}`,
+                            }
+                          : undefined
+                      }
+                    >
+                      <CardFace
+                        card={def}
+                        size="hand"
+                        rotation={0}
+                        highlight={selected}
+                        dimmed={targetingActive && !selected}
+                      />
+                    </div>
                   </button>
                   {playable && (
                     <span aria-hidden className="absolute -top-1 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rounded-full border border-ink bg-paper-deep" />

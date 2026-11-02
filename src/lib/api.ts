@@ -136,7 +136,7 @@ export interface MeProfile {
   collection: {
     id: string;
     name: string;
-    type: "unit" | "spell";
+    type: "unit" | "spell" | "area";
     cost: number;
     attack?: number;
     health?: number;

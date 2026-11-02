@@ -4,9 +4,11 @@
  * both read it. Effect primitives are exactly the set in the design spec.
  */
 
-export type CardType = "unit" | "spell";
+export type CardType = "unit" | "spell" | "area";
 export type Rarity = "common" | "rare" | "epic" | "legendary";
 export type Keyword = "guard" | "swift" | "twinstrike" | "insight" | "echo";
+/** Area washes — the only tinted frames in the monochrome game. */
+export type Wash = "sepia" | "slate" | "rose" | "graphite" | "crimson";
 
 /**
  * Effect primitives. `target` selectors:
@@ -42,6 +44,14 @@ export interface CardDef {
   onPlay?: Effect[];
   /** "Echo" — triggers when the unit is destroyed. */
   echo?: Effect[];
+  /** Area cards only: the rules the table obeys while this card is set out,
+   *  and the wash color that tints the owner's side of the board. */
+  area?: {
+    onTurnStart?: Effect[];
+    onTurnEnd?: Effect[];
+    onSummon?: Effect[];
+  };
+  wash?: Wash;
   /** True for tokens (not collectible). */
   token?: boolean;
 }
@@ -181,6 +191,16 @@ export const CARDS: CardDef[] = [
   C({ id: "ink_golem", name: "Ink Golem", type: "unit", cost: 3, attack: 3, health: 3, rarity: "common", token: true, text: "", lore: "Poured, not drawn." }),
   C({ id: "tempo_token", name: "Tempo Token", type: "spell", cost: 0, rarity: "common", token: true, text: "Gain 1 mana this turn only.", lore: "A little head start, handed over in person.", onPlay: [{ kind: "GAIN_MANA", n: 1, temporary: true }] }),
   C({ id: "scribble", name: "Scribble", type: "unit", cost: 1, attack: 1, health: 1, rarity: "common", token: true, text: "", lore: "A quick mark with big energy." }),
+
+  // ── Areas: set one out, and the table obeys its rules while it lasts ──
+  C({ id: "drafting_table", name: "The Drafting Table", type: "area", cost: 4, rarity: "rare", wash: "sepia", text: "Your turn starts with 1 extra mana this turn.", lore: "Every great sketch begins with good lighting.", area: { onTurnStart: [{ kind: "GAIN_MANA", n: 1, temporary: true }] } }),
+  C({ id: "overflowing_shelf", name: "The Overflowing Shelf", type: "area", cost: 6, rarity: "epic", wash: "slate", text: "Your turn starts with a drawn card.", lore: "It keeps handing you things. Politely, but constantly.", area: { onTurnStart: [{ kind: "DRAW", n: 1 }] } }),
+  C({ id: "the_ink_well", name: "The Ink Well", type: "area", cost: 3, rarity: "rare", wash: "graphite", text: "Your turn ends with 1 damage to each enemy unit.", lore: "Everything near the well comes out a little darker.", area: { onTurnEnd: [{ kind: "DEAL_DAMAGE", n: 1, target: "allEnemyUnits" }] } }),
+  C({ id: "guild_desk", name: "The Guild Desk", type: "area", cost: 4, rarity: "rare", wash: "sepia", text: "Units you summon enter with +1/+0.", lore: "The Guild stamps its approval on everything you make.", area: { onSummon: [{ kind: "BUFF", atk: 1, target: "chosenFriendly" }] } }),
+  C({ id: "paper_clinic", name: "The Paper Clinic", type: "area", cost: 3, rarity: "common", wash: "slate", text: "Units you summon enter with +0/+1.", lore: "Flatten the creases. Straighten the corners. Off you go.", area: { onSummon: [{ kind: "BUFF", hp: 1, target: "chosenFriendly" }] } }),
+  C({ id: "reading_room", name: "The Reading Room", type: "area", cost: 5, rarity: "epic", wash: "sepia", text: "Your turn ends with 2 HP restored to your hero.", lore: "Quiet, dusty, and quietly on your side.", area: { onTurnEnd: [{ kind: "HEAL_HERO", n: 2 }] } }),
+  C({ id: "sealed_wing", name: "The Sealed Wing", type: "area", cost: 4, rarity: "rare", wash: "crimson", text: "Your turn ends with 1 damage to the enemy hero.", lore: "Officially closed since the Blot. The pressure inside leaks out.", area: { onTurnEnd: [{ kind: "DEAL_DAMAGE", n: 1, target: "enemyHero" }] } }),
+  C({ id: "the_catalog_fire", name: "The Catalog Fire", type: "area", cost: 6, rarity: "legendary", wash: "crimson", text: "Your turn starts with 2 damage to the enemy hero.", lore: "The Head Archivist called it an accident. The flames kept going.", area: { onTurnStart: [{ kind: "DEAL_DAMAGE", n: 2, target: "enemyHero" }] } }),
 ];
 
 export const CARD_BY_ID: ReadonlyMap<string, CardDef> = new Map(
@@ -212,6 +232,9 @@ export const ARCHIVE_SET_IDS = new Set([
   "faded_scribe", "paper_wraith", "smudge_ogre", "erasure_wave", "smudge_twin",
   "recalled_edition", "ink_drinker", "uncatalogued_beast", "the_second_blot",
   "paper_leviathan", "the_great_blot",
+  // Areas: "The Uncatalogued Wing"
+  "drafting_table", "overflowing_shelf", "the_ink_well", "guild_desk",
+  "paper_clinic", "reading_room", "sealed_wing", "the_catalog_fire",
 ]);
 
 // ── Card sets (collection filters + completion rewards) ────────────────

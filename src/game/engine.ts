@@ -69,6 +69,8 @@ export type GameEvent =
   | { type: "DEATH"; side: Side; uid: string; cardId: string }
   | { type: "TURN_START"; side: Side; turnNumber: number }
   | { type: "TURN_END"; side: Side }
+  | { type: "AREA_PLAYED"; side: Side; cardId: string }
+  | { type: "AREA_REPLACED"; side: Side; cardId: string }
   | { type: "GAME_OVER"; result: "A" | "B" | "draw" };
 
 export interface LogLine {
@@ -92,6 +94,8 @@ export interface GameState {
   events: GameEvent[];
   log: LogLine[];
   mulliganDone: Record<Side, boolean>;
+  /** Active area card per side (null = bare paper). Areas change the rules of the table. */
+  areas: Record<Side, string | null>;
   /** Total damage dealt by the player (side A) this turn — for achievements. */
   damageThisTurn: { side: Side; n: number; kills: number };
 }
@@ -150,6 +154,7 @@ export function createGame(seed: number, deckA: string[], deckB: string[], first
       B: makePlayer("B", nameB, [...deckB]),
     },
     winner: null,
+    areas: { A: null, B: null },
     events: [{ type: "GAME_START" }],
     log: [{ turn: 0, side: "sys", text: "The duel begins. Ink meets paper." }],
     mulliganDone: { A: false, B: false },
@@ -444,6 +449,9 @@ function startTurn(s: GameState, side: Side): void {
   s.events.push({ type: "TURN_START", side, turnNumber: s.sideTurns[side] });
   s.log.push({ turn: s.sideTurns[side], side, text: `T${s.sideTurns[side]} — ${p.name === "You" ? "your" : `${p.name}'s`} turn. Mana: ${p.maxMana}.` });
   drawCard(s, side);
+  // the player's area acts at the start of their turn (extra mana, draws, …)
+  const startArea = s.areas[side] ? getCard(s.areas[side]!) : null;
+  if (startArea?.area?.onTurnStart) runEffects(s, side, startArea.area.onTurnStart, undefined, 0);
   checkGameOver(s);
 }
 
@@ -453,6 +461,9 @@ function endTurn(s: GameState, side: Side): void {
   p.tempMana = 0;
   p.mana = Math.min(p.mana, p.maxMana);
   s.events.push({ type: "TURN_END", side });
+  // the ending player's area acts at the end of their turn (pings, heals, …)
+  const endArea = s.areas[side] ? getCard(s.areas[side]!) : null;
+  if (endArea?.area?.onTurnEnd) runEffects(s, side, endArea.area.onTurnEnd, undefined, 0);
   startTurn(s, OTHER[side]);
 }
 
@@ -501,6 +512,25 @@ function playCard(s: GameState, side: Side, handUid: string, target: Target | un
   if (def.cost > p.mana) return;
   const targetUid = target && "uid" in target ? target.uid : undefined;
 
+  // Areas occupy their own slot and rewrite the table's rules while they last.
+  // Playing a new one replaces the old (which is discarded).
+  if (def.type === "area") {
+    p.hand.splice(idx, 1);
+    p.mana -= def.cost;
+    const replaced = s.areas[side];
+    s.areas[side] = def.id;
+    s.events.push({ type: "AREA_PLAYED", side, cardId: def.id });
+    if (replaced) s.events.push({ type: "AREA_REPLACED", side, cardId: replaced });
+    s.log.push({
+      turn: s.sideTurns[side],
+      side,
+      text: `${p.name} sets out ${def.name}${replaced ? `, clearing ${getCard(replaced).name}` : ""}.`,
+    });
+    processDeaths(s);
+    checkGameOver(s);
+    return;
+  }
+
   if (def.type === "unit") {
     if (boardFull(s, side)) return;
     p.hand.splice(idx, 1);
@@ -523,6 +553,9 @@ function playCard(s: GameState, side: Side, handUid: string, target: Target | un
       drawCard(s, side);
       s.log.push({ turn: s.sideTurns[side], side, text: `Insight — ${p.name} draws a card.` });
     }
+    // the player's area greets every unit they summon (buffs, marks, …)
+    const summonArea = s.areas[side] ? getCard(s.areas[side]!) : null;
+    if (summonArea?.area?.onSummon) runEffects(s, side, summonArea.area.onSummon, { uid: u.uid }, 0);
     if (def.onPlay) {
       const wipe = def.onPlay.find((e) => e.kind === "DESTROY" && e.target === "allOtherUnits");
       if (wipe) {
