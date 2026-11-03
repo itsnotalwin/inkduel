@@ -152,8 +152,8 @@ export default function MultiplayerPage() {
                 <WashiTape angle={-2} className="left-1/2 top-0 -translate-x-1/2" width={84} />
                 <div className="label-type text-[10px] text-graphite">INVITE CODE</div>
                 <div
-                  className="small-caps text-5xl font-bold tracking-[0.3em] md:text-6xl"
-                  style={{ fontFamily: "var(--font-display)", paddingLeft: "0.3em" }}
+                  className="small-caps text-4xl font-bold tracking-[0.2em] sm:text-5xl md:text-6xl md:tracking-[0.3em]"
+                  style={{ fontFamily: "var(--font-display)", paddingLeft: "0.2em" }}
                 >
                   {created.code}
                 </div>
@@ -226,7 +226,7 @@ export default function MultiplayerPage() {
       </section>
 
       <div className="mt-10 text-center">
-        <Stamp className="text-xs">V0 · OPEN LISTS — THE TAPE KEEPS EVERYONE HONEST</Stamp>
+        <HandNote className="text-base leading-snug">v0 · open lists — the tape keeps everyone honest</HandNote>
         <div className="mt-4">
           <Link href="/" className="label-type focus-ink text-xs underline underline-offset-4">
             ← back to the front page
