@@ -101,6 +101,33 @@ export interface GameState {
   damageThisTurn: { side: Side; n: number; kills: number };
   /** THE BLOT SPREADS — this week's table mutation, if the duel carries one. */
   mutation?: TableMutation | null;
+  /** DESCENT blessings — side-scoped opening bonuses riding the FIRST side, if any. */
+  firstBonus?: FirstBonus | null;
+}
+
+/**
+ * DESCENT INTO THE SEALED WING — opening bonuses for the FIRST side only
+ * (blessings drafted between floors). Every field is optional; absent fields
+ * change nothing. The whole object rides the GameState, so replays and tapes
+ * stay deterministic. The weekly TableMutation is table-wide; this is not.
+ */
+export interface FirstBonus {
+  /** The first side's hero starts with this much more than HERO_HP. */
+  heroHpBonus?: number;
+  /** The first side's mana clock starts +N higher on its turns (capped at MANA_CAP). */
+  extraStartingMana?: number;
+  /** Units the first side plays arrive with +N attack. */
+  summonBuffAtk?: number;
+  /** Units the first side plays arrive with +N health (and max health). */
+  summonBuffHp?: number;
+  /** The first side draws N extra cards at the start of each of its turns. */
+  turnStartDraw?: number;
+  /** The first side's hero heals N at the end of its turn (capped at HERO_HP + heroHpBonus). */
+  turnEndHeal?: number;
+  /** The OTHER hero takes N damage at the end of the first side's turn. */
+  turnEndDamage?: number;
+  /** The first side starts the duel with N extra cards in its opening hand. */
+  startHandBonus?: number;
 }
 
 // ── RNG (mulberry32, deterministic) ─────────────────────────────────────
@@ -143,7 +170,7 @@ function makePlayer(side: Side, name: string, deck: string[]): PlayerState {
   };
 }
 
-export function createGame(seed: number, deckA: string[], deckB: string[], first: Side, nameA = "You", nameB = "Opponent", mutation?: TableMutation): GameState {
+export function createGame(seed: number, deckA: string[], deckB: string[], first: Side, nameA = "You", nameB = "Opponent", mutation?: TableMutation, firstBonus?: FirstBonus): GameState {
   const state: GameState = {
     seed,
     rngState: seed | 0,
@@ -163,15 +190,24 @@ export function createGame(seed: number, deckA: string[], deckB: string[], first
     mulliganDone: { A: false, B: false },
     damageThisTurn: { side: first, n: 0, kills: 0 },
     mutation: mutation ?? null,
+    firstBonus: firstBonus ?? null,
   };
   // THE BLOT SPREADS: a table mutation may start both heroes at less than full HP.
   if (mutation?.heroHp !== undefined) {
     state.players.A.heroHp = mutation.heroHp;
     state.players.B.heroHp = mutation.heroHp;
   }
+  // DESCENT: the first side's hero arrives heartier (a side-scoped blessing).
+  if (firstBonus?.heroHpBonus) {
+    state.players[first].heroHp = HERO_HP + firstBonus.heroHpBonus;
+  }
   for (const side of ["A", "B"] as Side[]) {
     shuffle(state, state.players[side].deck);
     for (let i = 0; i < START_HAND; i++) drawCard(state, side, false);
+  }
+  // DESCENT: the first side's opening hand runs deeper (Ink Reserve).
+  if (firstBonus?.startHandBonus) {
+    for (let i = 0; i < firstBonus.startHandBonus; i++) drawCard(state, first, false);
   }
   return state;
 }
@@ -547,8 +583,13 @@ function startTurn(s: GameState, side: Side): void {
   p.tempMana = 0;
   // Per-side mana clock — "turn 1 = 3 crystals, +1 per turn, cap 10" counts each
   // player's own turns, keeping games fully fair (§6); the Tempo Token is the
-  // second player's only edge. THE BLOT SPREADS may raise every turn's floor.
-  p.maxMana = Math.min(MANA_CAP, STARTING_MANA + (s.sideTurns[side] - 1) + (s.mutation?.extraStartingMana ?? 0));  p.mana = Math.min(MANA_CAP, p.maxMana + p.tempMana);
+  // second player's only edge. THE BLOT SPREADS raises every turn's floor;
+  // DESCENT blessings raise only the first side's.
+  p.maxMana = Math.min(
+    MANA_CAP,
+    STARTING_MANA + (s.sideTurns[side] - 1) + (s.mutation?.extraStartingMana ?? 0) + (side === s.first ? s.firstBonus?.extraStartingMana ?? 0 : 0),
+  );
+  p.mana = Math.min(MANA_CAP, p.maxMana + p.tempMana);
   for (const u of p.board) {
     u.sick = false;
     u.attacksLeft = u.keywords.includes("twinstrike") ? 2 : 1;
@@ -559,6 +600,12 @@ function startTurn(s: GameState, side: Side): void {
   // the player's area acts at the start of their turn (extra mana, draws, …)
   const startArea = s.areas[side] ? getCard(s.areas[side]!) : null;
   if (startArea?.area?.onTurnStart) runEffects(s, side, startArea.area.onTurnStart, undefined, 0);
+  // DESCENT: the first side's blessing turns an extra page at its turn start.
+  const bonusDraw = side === s.first ? s.firstBonus?.turnStartDraw ?? 0 : 0;
+  if (bonusDraw > 0) {
+    for (let i = 0; i < bonusDraw; i++) drawCard(s, side);
+    s.log.push({ turn: s.sideTurns[side], side, text: `A blessing turns an extra page — ${p.name} draws ${bonusDraw}.` });
+  }
   checkGameOver(s);
 }
 
@@ -571,6 +618,20 @@ function endTurn(s: GameState, side: Side): void {
   // the ending player's area acts at the end of their turn (pings, heals, …)
   const endArea = s.areas[side] ? getCard(s.areas[side]!) : null;
   if (endArea?.area?.onTurnEnd) runEffects(s, side, endArea.area.onTurnEnd, undefined, 0);
+  // DESCENT: the first side's end-of-turn blessing — its hero mends (capped at
+  // HERO_HP + any hp bonus, mirroring HEAL_HERO) and the other hero pays a toll.
+  if (side === s.first && s.firstBonus) {
+    const fb = s.firstBonus;
+    if (fb.turnEndHeal) {
+      p.heroHp = Math.min(HERO_HP + (fb.heroHpBonus ?? 0), p.heroHp + fb.turnEndHeal);
+      s.events.push({ type: "HEAL", side, n: fb.turnEndHeal, hp: p.heroHp });
+    }
+    if (fb.turnEndDamage) {
+      dealToHero(s, OTHER[side], fb.turnEndDamage);
+      creditDamage(s, side, fb.turnEndDamage);
+    }
+    checkGameOver(s);
+  }
   startTurn(s, OTHER[side]);
 }
 
@@ -672,6 +733,20 @@ function playCard(s: GameState, side: Side, handUid: string, target: Target | un
     // the player's area greets every unit they summon (buffs, marks, …)
     const summonArea = s.areas[side] ? getCard(s.areas[side]!) : null;
     if (summonArea?.area?.onSummon) runEffects(s, side, summonArea.area.onSummon, { uid: u.uid }, 0);
+    // DESCENT: the first side's blessing hardens every unit it plays.
+    const summonBonus = side === s.first ? s.firstBonus : null;
+    if (summonBonus && (summonBonus.summonBuffAtk || summonBonus.summonBuffHp)) {
+      u.attack += summonBonus.summonBuffAtk ?? 0;
+      if (summonBonus.summonBuffHp) {
+        u.health += summonBonus.summonBuffHp;
+        u.maxHealth += summonBonus.summonBuffHp;
+      }
+      s.log.push({
+        turn: s.sideTurns[side],
+        side,
+        text: `A blessing seals ${def.name} — +${summonBonus.summonBuffAtk ?? 0}/+${summonBonus.summonBuffHp ?? 0}.`,
+      });
+    }
     if (def.onPlay) {
       const wipe = def.onPlay.find((e) => e.kind === "DESTROY" && e.target === "allOtherUnits");
       if (wipe) {

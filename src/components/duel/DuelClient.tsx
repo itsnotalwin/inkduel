@@ -18,6 +18,7 @@ import {
 import { ARCHETYPE_DECKS, getCard, type Wash } from "@/game/cards";
 import { expandDeck, type DeckEntry } from "@/game/decks";
 import { DECK_PICKS, DRAFT_STASH_KEY } from "@/game/draft";
+import { blessingsToFirstBonus, claimWingbreaker, descentFloorBot, descentFloorSpec, floorSeed, loadRun, loseRun, saveRun, winFloor } from "@/game/descent";
 import { blotMutationFor } from "@/game/blot";
 import { campaignStage } from "@/game/campaign";
 import { decideAction, mulliganAction, pickBot, botDeckIds, type BotProfile } from "@/game/ai";
@@ -208,6 +209,8 @@ export default function DuelClient() {
   const hotseat = searchParams.get("mode") === "hotseat";
   // ink draft: ?draft=1 — both decks were drafted at /draft and stashed
   const draft = searchParams.get("draft") !== null;
+  // the descent: ?descent=1 — a roguelite run read from its save file
+  const descent = searchParams.get("descent") !== null;
   // online duel: ?mp=<duelId>&side=A|B — lockstep over the action tape
   const mpInfo = useMemo(() => {
     const duelId = searchParams.get("mp");
@@ -219,6 +222,7 @@ export default function DuelClient() {
   const [bot, setBot] = useState<BotProfile | null>(null);
   const [mpError, setMpError] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [descentError, setDescentError] = useState<string | null>(null);
   const [anim, setAnim] = useState<AnimState>(EMPTY_ANIM);
   const [targeting, setTargeting] = useState<{ kind: "play" | "attack"; uid: string; targets: Target[] } | null>(null);
   const [mulliganPicks, setMulliganPicks] = useState<Set<string>>(new Set());
@@ -304,6 +308,7 @@ export default function DuelClient() {
     actionsRef.current = [];
     setAwaitingPass(false);
     setDraftError(null);
+    setDescentError(null);
     if (mpInfo) {
       mpRef.current = { duelId: mpInfo.duelId, side: mpInfo.side };
       mpTapeRef.current = [];
@@ -362,6 +367,54 @@ export default function DuelClient() {
       setTimer(TURN_SECONDS);
       setState(
         createGame(matchSeed, expandDeck(deckEntries as DeckEntry[]), expandDeck(deckEntries as DeckEntry[]), "A", "Player 1", "Player 2"),
+      );
+      return;
+    }
+    if (descent) {
+      // the descent: floor N vs its wing denizen, blessings riding side A
+      const run = loadRun();
+      if (!run || !run.alive || run.cleared) {
+        setBot(null);
+        setState(null);
+        setDescentError("the wing has claimed this run — begin a new descent from the stair");
+        return;
+      }
+      await ensureGuest();
+      let deckEntries = localDeck();
+      const decks = await getDecks();
+      if (decks && decks.length > 0) {
+        const active = decks.find((d) => d.isActive) ?? decks[0];
+        deckEntries = active.cards;
+      }
+      const spec = descentFloorSpec(run.floor);
+      const floorBot = descentFloorBot(run.floor);
+      const floorSeedN = floorSeed(run, run.floor);
+      statsRef.current = {
+        maxTurnDamage: 0,
+        maxTurnKills: 0,
+        tookFatigue: false,
+        startedAt: Date.now(),
+        turnDamage: 0,
+        turnKills: 0,
+        deckEntries,
+      };
+      setBot(floorBot);
+      setAnim(EMPTY_ANIM);
+      setTargeting(null);
+      setMulliganPicks(new Set());
+      setResult(null);
+      setTimer(TURN_SECONDS);
+      setState(
+        createGame(
+          floorSeedN,
+          expandDeck(deckEntries as DeckEntry[]),
+          botDeckIds(floorBot.key, floorSeedN),
+          "A",
+          localName(),
+          floorBot.name,
+          spec.blotTainted ? blotMutationFor(Date.now()) : undefined,
+          blessingsToFirstBonus(run.blessings),
+        ),
       );
       return;
     }
@@ -663,9 +716,18 @@ export default function DuelClient() {
       }
       if (r === "WIN") sound.victoryDing(state.seed);
       else if (r === "LOSS") sound.defeatNote(state.seed);
+      // the descent: the observed result advances (or ends) the run on the spot
+      if (descent) {
+        const run = loadRun();
+        if (run) {
+          const updated = r === "WIN" ? winFloor(run) : r === "DRAW" ? run : loseRun(run);
+          saveRun(updated);
+          if (r === "WIN" && updated.cleared && !run.cleared) claimWingbreaker();
+        }
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-arms only on a finished game; searchParams changes restart the match instead
-  }, [state, bot, result, hotseat]);
+  }, [state, bot, result, hotseat, descent]);
 
   // ── AI loop (solo only) ───────────────────────────────────────────────
   useEffect(() => {
@@ -923,6 +985,13 @@ export default function DuelClient() {
             <HandNote className="max-w-md text-2xl leading-snug">{draftError}</HandNote>
             <Link href="/draft" className="stamp-btn focus-ink label-type px-4 py-2 text-xs">
               Back to the draft
+            </Link>
+          </div>
+        ) : descentError ? (
+          <div className="flex flex-col items-center gap-5">
+            <HandNote className="max-w-md text-2xl leading-snug">{descentError}</HandNote>
+            <Link href="/descent" className="stamp-btn focus-ink label-type px-4 py-2 text-xs">
+              Back to the stair
             </Link>
           </div>
         ) : (

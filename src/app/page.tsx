@@ -176,6 +176,15 @@ export default function HomePage() {
                 <StampButton>Join the Ink Draft</StampButton>
               </motion.span>
             </Link>
+            <Link href="/descent">
+              <motion.span
+                className="inline-block"
+                whileHover={{ rotate: 2, scale: 1.04 }}
+                whileTap={{ rotate: -1, scale: 0.97 }}
+              >
+                <StampButton>Descend into the Sealed Wing</StampButton>
+              </motion.span>
+            </Link>
             <HandNote className="text-2xl">← it only takes one pen</HandNote>
           </div>
           {blot && (
