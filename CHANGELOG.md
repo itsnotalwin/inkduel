@@ -181,6 +181,45 @@ The collection gains two clickable set chips — **First Edition** and
 Completing a set pays a one-time ink reward (First Edition 300, Archive Set
 500), granted lazily on profile read and claimed exactly once.
 
+## The Grand Gameplan — five phases in one drop
+
+### 1 · Ink Draft
+Twenty pick-rounds of three cards at `/draft` — legality-aware offers (never
+a third copy, never a second legendary), a seeded rival drafting its own
+curve-weighted deck in parallel, then a duel where drafted duels pay real Elo
+and ink via the `ink-draft` pseudo-bot. Determinism tested over 200 seeds.
+
+### 2 · The Archivist's Tests
+Six puzzle duels at `/puzzles` with a daily rotation (the Daily Test pays
+40 + 25 ink). A new `makePuzzle()` engine entry builds preset states; the
+server **replays the submitted tape through the engine** and pays only for a
+proven solve — corrupted tapes are rejected, re-solves pay nothing. The test
+suite proves every puzzle solvable before it ships.
+
+### 3 · The Blot Spreads
+A living antagonist: four weekly table mutations rotating by calendar week —
+THE BLOT HUNGERS (25-HP duels), SMUDGED SIGNS (spells cost +1), THE WELL RUNS
+DEEP (+1 mana every turn), and **THE SHADOW MIRROR** (the rival plays your
+exact deck). Deterministic from the date, rides the game setup so tapes and
+multiplayer stay honest. Crimson banner on home + duel header when active.
+
+### 4 · Descent into the Sealed Wing
+A 7-floor roguelite at `/descent`: escalate through wing denizens, draft a
+Blessing between floors (Iron Fold, Crimson Toll, Scholar's Habit… —
+side-scoped bonuses that ride every later duel), lose once and the wing keeps
+you. Floor 7 is the Head Archivist on a Blot-tainted table; clearing it earns
+the **WINGBREAKER** trophy. The engine gains a side-scoped `firstBonus`
+system (hero HP, mana clock, summon buffs, extra draws, end-of-turn
+heal/toll, deeper opening hand).
+
+### 5 · The Daily Ink + Spectate
+The stats page is now a **broadsheet newspaper** — masthead, lead story from
+live win rates, obituaries for the worst card, marathon-duel sports desk,
+ladder column, and From the Sealed Wing gossip. Plus **spectate mode**:
+`/spectate?code=<CODE>` (copyable from the lobby) polls the duel tape every
+2s and renders a lean read-only board. The mp state route also accepts
+invite codes now.
+
 ## Wave 4: "The Uncatalogued" (16 new cards + token)
 
 The Great Blot from the prologue backstory leaks into the collection: 16 new
