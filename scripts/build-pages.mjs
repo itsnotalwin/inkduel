@@ -74,8 +74,8 @@ try {
 }
 
 if (code === 0) {
-  // inject every hashed asset into the service-worker precache list
-  // voice files (public/voice/*.mp3) are runtime-streamed, never precached — silent offline is fine
+  // inject every hashed asset + every voice file into the SW precache list.
+  // Voices are part of the app — downloaded once, served from cache forever.
   const assets = [];
   const walk = (dir) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -85,13 +85,15 @@ if (code === 0) {
     }
   };
   walk(join("out", "_next"));
+  walk(join("out", "voice"));
   for (const extra of ["icon.svg", "favicon.ico"]) {
     if (existsSync(join("out", extra))) assets.push("./" + extra);
   }
   const swPath = join("out", "sw.js");
   const sw = readFileSync(swPath, "utf8");
   writeFileSync(swPath, sw.replace("/*__ASSETS__*/[]", JSON.stringify(assets)));
-  console.log(`service worker precache injected: ${assets.length} assets`);
+  const voiceCount = assets.filter((a) => a.includes("/voice/")).length;
+  console.log(`service worker precache injected: ${assets.length} assets (${voiceCount} voice files)`);
 }
 
 process.exit(code);

@@ -11,7 +11,7 @@ import { CardFace } from "@/components/card/CardFace";
 import { getCard } from "@/game/cards";
 import { blotActiveMutationFor, type TableMutation } from "@/game/blot";
 import { GAME_NAME, GAME_TAGLINE, type RankKey } from "@/config";
-import { DEFAULT_VOICE, VOICES, readVoicePref, setVoicePref } from "@/lib/voice";
+import { DEFAULT_VOICE, VOICES, PROLOGUE_LINE_IDS, preloadVoices, readVoicePref, setVoicePref } from "@/lib/voice";
 
 const SPOTLIGHT = ["paper_swan", "ink_blot", "red_pen", "the_calligrapher"].map(getCard);
 
@@ -54,6 +54,8 @@ export default function HomePage() {
       }
       setNarrator(readVoicePref());
       setBlot(blotActiveMutationFor(Date.now()));
+      // warm the voice cache while the player reads the front page
+      void preloadVoices(PROLOGUE_LINE_IDS.slice(0, 5));
       await ensureGuest();
       const [meData, q, m] = await Promise.all([getMe(), getQuestToday(), getMeta()]);
       setMe(meData);

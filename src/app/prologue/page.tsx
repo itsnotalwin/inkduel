@@ -11,7 +11,7 @@ import manifest from "@/data/voice-lines.json";
 import {
   PROLOGUE_LINE_IDS,
   playVoiceWithEnd,
-  preloadVoice,
+  preloadVoices,
   readPrologueVoicePref,
   setPrologueVoicePref,
   stopVoice,
@@ -784,8 +784,9 @@ export default function ProloguePage() {
     sound.stampThunk();
     ambient.start();
     ambient.setPhase("mulligan");
-    // warm the rest of the script while line 1 streams (best effort)
-    if (voiceOn) preloadVoice(PROLOGUE_LINE_IDS.slice(1));
+    // warm the cache for the whole script — the first line loads before the
+    // first scene starts speaking, the rest buffer in parallel
+    void preloadVoices(PROLOGUE_LINE_IDS.slice(1));
   };
 
   const toggleVoice = () => {
