@@ -1,3 +1,4 @@
+import { memo, type MouseEvent } from "react";
 import type { CardDef, Wash } from "@/game/cards";
 import { KEYWORD_LABEL } from "@/game/cards";
 import { ArtCanvas, CardArt, GroundLine, Ink, Sketch } from "@/lib/cards/art";
@@ -167,7 +168,7 @@ export interface CardFaceProps {
   className?: string;
 }
 
-export function CardFace({
+function CardFaceInner({
   card,
   size = "collection",
   locked = false,
@@ -395,3 +396,23 @@ export function CardFace({
     </div>
   );
 }
+
+/**
+ * Memoized — CardFace is the most-rendered component in the game (120 on the
+ * collection grid, 10+ in the builder, 10+ on the duel board). The custom
+ * comparator skips re-renders when only the parent re-rendered but the card's
+ * visual props didn't change (the card object is immutable, so id + size +
+ * visual flags are sufficient).
+ */
+export const CardFace = memo(CardFaceInner, (prev, next) => {
+  return (
+    prev.card.id === next.card.id &&
+    prev.size === next.size &&
+    prev.locked === next.locked &&
+    prev.highlight === next.highlight &&
+    prev.dimmed === next.dimmed &&
+    prev.rotation === next.rotation &&
+    prev.count === next.count &&
+    prev.className === next.className
+  );
+});
