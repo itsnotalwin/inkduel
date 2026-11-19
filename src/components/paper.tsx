@@ -124,7 +124,8 @@ export function StampButton({
   ...rest
 }: StampButtonProps) {
   const sizes = {
-    sm: "px-3 py-1.5 text-xs",
+    // sm is thumb-sized on phones (≥40px tall) — the house button gets tapped, not clicked
+    sm: "px-3 py-2.5 text-xs",
     md: "px-5 py-2.5 text-sm",
     lg: "px-8 py-4 text-lg",
   } as const;

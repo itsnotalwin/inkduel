@@ -228,7 +228,7 @@ export default function MultiplayerPage() {
       <div className="mt-10 text-center">
         <HandNote className="text-base leading-snug">v0 · open lists — the tape keeps everyone honest</HandNote>
         <div className="mt-4">
-          <Link href="/" className="label-type focus-ink text-xs underline underline-offset-4">
+          <Link href="/" className="label-type focus-ink inline-flex items-center py-2.5 text-xs underline underline-offset-4">
             ← back to the front page
           </Link>
         </div>

@@ -173,3 +173,19 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--color-pencil) transparent;
 }
+
+/* ── iOS focus zoom guard ─────────────────────────────────────
+   Safari zooms the whole page when an input/select smaller than
+   16px takes focus. Keep every form control at 16px on phones —
+   the typewriter look survives, the auto-zoom doesn't happen.
+   Selects also get a thumb-height floor. */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+  select {
+    min-height: 44px;
+  }
+}

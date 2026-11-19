@@ -189,7 +189,7 @@ export default function ProfilePage() {
                   {history.length === 0 && (
                     <tr>
                       <td colSpan={7} className="px-3 py-6 text-center text-graphite">
-                        No duels on record yet. <Link href="/duel" className="underline">Fix that.</Link>
+                        No duels on record yet. <Link href="/duel" className="py-1.5 underline">Fix that.</Link>
                       </td>
                     </tr>
                   )}

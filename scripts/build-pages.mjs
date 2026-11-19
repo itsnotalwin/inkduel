@@ -86,6 +86,8 @@ if (code === 0) {
   };
   walk(join("out", "_next"));
   walk(join("out", "voice"));
+  walk(join("out", "sfx"));
+  walk(join("out", "music"));
   for (const extra of ["icon.svg", "favicon.ico"]) {
     if (existsSync(join("out", extra))) assets.push("./" + extra);
   }

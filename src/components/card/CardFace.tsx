@@ -147,7 +147,7 @@ function AreaArt({ wash, accent }: { wash: Wash; accent: string }) {
 
 /** Mobile-first widths: small by default, scaling up with the viewport. */
 const SIZE_WIDTH: Record<CardSize, string> = {
-  hand: "clamp(96px, 24vw, 150px)",
+  hand: "clamp(104px, 24vw, 150px)",
   board: "clamp(120px, 40vw, 190px)",
   collection: "clamp(124px, 40vw, 168px)",
   token: "clamp(96px, 22vw, 120px)",

@@ -107,7 +107,7 @@ export default function DescentPage() {
           <StampButton size="lg" disabled={busy} onClick={() => void begin()}>
             {busy ? "…" : "BEGIN THE DESCENT"}
           </StampButton>
-          <Link href="/" className="label-type text-xs underline">back to the front page</Link>
+          <Link href="/" className="label-type inline-flex items-center py-2.5 text-xs underline">back to the front page</Link>
         </Panel>
       ) : run.cleared ? (
         /* ── the seal is broken ── */
@@ -127,7 +127,7 @@ export default function DescentPage() {
             ))}
           </div>
           <StampButton onClick={newRun}>Descend again</StampButton>
-          <Link href="/" className="label-type text-xs underline">back to the front page</Link>
+          <Link href="/" className="label-type inline-flex items-center py-2.5 text-xs underline">back to the front page</Link>
         </Panel>
       ) : !run.alive ? (
         /* ── claimed by the wing ── */
@@ -137,7 +137,7 @@ export default function DescentPage() {
             floor {run.floor} — {floorLabel(run.floor)}. {floorsCleared(run)} floors cleared.
           </HandNote>
           <StampButton onClick={newRun}>Begin a new descent</StampButton>
-          <Link href="/" className="label-type text-xs underline">back to the front page</Link>
+          <Link href="/" className="label-type inline-flex items-center py-2.5 text-xs underline">back to the front page</Link>
         </Panel>
       ) : run.wonLast && offer.length > 0 ? (
         /* ── the blessing draft ── */
@@ -223,7 +223,7 @@ export default function DescentPage() {
             })}
           </div>
           <div className="mt-6 text-center">
-            <Link href="/" className="label-type text-xs underline">back to the front page</Link>
+            <Link href="/" className="label-type inline-flex items-center py-2.5 text-xs underline">back to the front page</Link>
           </div>
         </div>
       )}

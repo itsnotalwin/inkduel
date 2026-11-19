@@ -41,14 +41,14 @@ export default function DraftPage() {
     setRival(rivalDraft(seed));
     setRivalSeen(0);
     setRun(startDraftRun(seed));
-    sound.paperSlide();
+    sound.shuffle();
   }, []);
 
   const onPick = useCallback(
     (cardId: string) => {
       if (!run || run.complete) return;
       const next = pickFromOffer(run, cardId);
-      sound.pop();
+      sound.cardPlace();
       if (next.complete) {
         // seal both decks for the duel before the reveal settles — if storage
         // is blocked the duel page sends the player back for a fresh draft
@@ -70,6 +70,12 @@ export default function DraftPage() {
     const t = window.setTimeout(() => setRivalSeen(run.picks.length), RIVAL_TICK_MS);
     return () => window.clearTimeout(t);
   }, [run, rivalSeen]);
+
+  // the writing-room bed — starts after the first tap (autoplay policy), stops on leave
+  useEffect(() => {
+    sound.playMusic("draft");
+    return () => sound.stopMusicIf("draft");
+  }, []);
 
   const drafting = run !== null && !run.complete;
 
@@ -106,7 +112,7 @@ export default function DraftPage() {
                 JOIN THE INK DRAFT
               </StampButton>
             </motion.span>
-            <Link href="/" className="label-type focus-ink text-xs text-graphite underline underline-offset-4">
+            <Link href="/" className="label-type focus-ink inline-flex items-center py-2.5 text-xs text-graphite underline underline-offset-4">
               ← back to the front page
             </Link>
           </div>

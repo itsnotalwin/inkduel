@@ -244,7 +244,7 @@ export default function MetaPage() {
                 </ol>
                 <p>
                   The full standings, bots included, live{" "}
-                  <Link href="/leaderboard" className="underline underline-offset-4">
+                  <Link href="/leaderboard" className="py-1.5 underline underline-offset-4">
                     here
                   </Link>
                   .
@@ -339,7 +339,7 @@ export default function MetaPage() {
               THE DAILY INK · PRINTED IN MONOCHROME · NO DUELS WERE INVENTED IN THE MAKING OF THIS ISSUE
             </p>
             <div className="mt-3">
-              <Link href="/" className="label-type focus-ink text-xs underline underline-offset-4">
+              <Link href="/" className="label-type focus-ink inline-flex items-center py-2.5 text-xs underline underline-offset-4">
                 ← back to the front page
               </Link>
             </div>

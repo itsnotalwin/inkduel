@@ -48,6 +48,7 @@ export default function PacksPage() {
     setResult(null);
     setRevealed(0);
     setPullScene(null);
+    sound.packOpen(); // the wrapper tears
     const res = await openPacks(packs, packType);
     setOpening(false);
     if (!res) {
@@ -67,10 +68,11 @@ export default function PacksPage() {
     }
     setResult(res);
     setMe((prev) => (prev ? { ...prev, coins: res.coinsAfter } : prev));
-    // reveal cards one by one
+    // reveal cards one by one — each slide off the stack gets its take
     for (let i = 1; i <= res.cards.length; i++) {
       await new Promise((r) => setTimeout(r, 550));
       setRevealed(i);
+      sound.packTake();
     }
   };
 

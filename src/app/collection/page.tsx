@@ -293,7 +293,7 @@ function FilterSelect<T extends string>({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className="ink-frame-thin px-2 py-1 text-xs"
+        className="ink-frame-thin px-2 py-2.5 text-xs"
         style={{ fontFamily: "var(--font-type)", background: "var(--color-cardstock)" }}
       >
         {options.map(([v, l]) => (

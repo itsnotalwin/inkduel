@@ -152,7 +152,7 @@ export function TutorialTip({
             </div>
             <button
               type="button"
-              className="stamp-btn label-type px-2 py-1 text-[9px]"
+              className="stamp-btn label-type px-2.5 py-2 text-[9px]"
               onClick={() => {
                 for (const t of ALL_TIPS) dismissTutorialTip(t);
                 onDismiss("tipWelcome");

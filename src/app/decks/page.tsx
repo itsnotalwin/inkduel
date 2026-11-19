@@ -369,7 +369,7 @@ export default function DecksPage() {
       )}
 
       <p className="label-type mt-10 text-center text-[10px] text-graphite">
-        The ACTIVE deck is the one that walks into the arena — <Link href="/duel" className="underline">play it</Link>
+        The ACTIVE deck is the one that walks into the arena — <Link href="/duel" className="py-1.5 underline">play it</Link>
       </p>
     </main>
   );

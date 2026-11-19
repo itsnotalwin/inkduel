@@ -113,6 +113,7 @@ export function playVoiceWithEnd(
     onEnded?.();
     return;
   }
+  sound.duckForVoice(); // the bed dips under the narrator, then swells back
   stopVoice();
   const voice = voiceKey ?? readVoicePref();
   const audio = getVoiceAudio(id, voice);

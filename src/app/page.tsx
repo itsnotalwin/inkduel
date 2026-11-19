@@ -11,6 +11,7 @@ import { CardFace } from "@/components/card/CardFace";
 import { getCard } from "@/game/cards";
 import { blotActiveMutationFor, type TableMutation } from "@/game/blot";
 import { GAME_NAME, GAME_TAGLINE, type RankKey } from "@/config";
+import { sound } from "@/lib/sound";
 import { DEFAULT_VOICE, VOICES, PROLOGUE_LINE_IDS, preloadVoices, readVoicePref, setVoicePref } from "@/lib/voice";
 
 const SPOTLIGHT = ["paper_swan", "ink_blot", "red_pen", "the_calligrapher"].map(getCard);
@@ -56,12 +57,15 @@ export default function HomePage() {
       setBlot(blotActiveMutationFor(Date.now()));
       // warm the voice cache while the player reads the front page
       void preloadVoices(PROLOGUE_LINE_IDS.slice(0, 5));
+      // the newsroom bed — starts after the first tap (autoplay policy), stops on leave
+      sound.playMusic("menu");
       await ensureGuest();
       const [meData, q, m] = await Promise.all([getMe(), getQuestToday(), getMeta()]);
       setMe(meData);
       setQuest(q);
       setMeta(m);
     })();
+    return () => sound.stopMusicIf("menu");
   }, []);
 
   const leadCard = meta?.topPlayed?.[0];
@@ -96,7 +100,7 @@ export default function HomePage() {
             <Link
               key={n.href}
               href={n.href}
-              className="label-type focus-ink text-sm text-ink underline-offset-4 hover:underline"
+              className="label-type focus-ink -my-2 flex items-center px-1 py-3 text-sm text-ink underline-offset-4 hover:underline"
             >
               {n.label}
             </Link>
@@ -155,7 +159,7 @@ export default function HomePage() {
                 </StampButton>
               </motion.span>
             </Link>
-            <Link href="/duel?mode=hotseat" className="focus-ink">
+            <Link href="/duel?mode=hotseat" className="focus-ink inline-flex items-center py-2">
               <HandNote className="text-xl underline decoration-dashed underline-offset-4">
                 or pass &amp; play with a friend →
               </HandNote>
@@ -207,7 +211,7 @@ export default function HomePage() {
                   setNarrator(e.target.value);
                   setVoicePref(e.target.value);
                 }}
-                className="ink-frame-thin px-2 py-1 text-[11px]"
+                className="ink-frame-thin px-2 py-2 text-[11px]"
                 style={{ fontFamily: "var(--font-type)", background: "var(--color-cardstock)" }}
               >
                 {VOICES.map((v) => (
@@ -219,7 +223,7 @@ export default function HomePage() {
             </label>
             <button
               type="button"
-              className="focus-ink label-type text-[10px] text-graphite underline underline-offset-4"
+              className="focus-ink label-type inline-flex items-center py-2.5 text-[11px] text-graphite underline underline-offset-4"
               onClick={() => {
                 window.localStorage.removeItem("inkduel:seenPrologue");
                 resetTutorialFlags();
@@ -318,7 +322,7 @@ function MastheadDeal() {
   const reduce = useReducedMotion();
   const cards = SPOTLIGHT;
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-2 flex justify-center gap-3 md:gap-5">
+    <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-2 flex justify-center gap-3 overflow-hidden md:gap-5">
       {cards.map((card, i) => {
         const mid = (cards.length - 1) / 2;
         const rest = (i - mid) * 4;

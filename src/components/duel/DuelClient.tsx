@@ -229,6 +229,10 @@ export default function DuelClient() {
   const [logOpen, setLogOpen] = useState(false);
   const [timer, setTimer] = useState(TURN_SECONDS);
   const [muted, setMuted] = useState(false);
+  // long-press a hand card to read it full-size — hand cards are ~96px wide on
+  // phones and the rules text is pencil-fine, so every card deserves a look
+  const [inspectId, setInspectId] = useState<string | null>(null);
+  const inspectTimerRef = useRef<number | null>(null);
   const [awaitingPass, setAwaitingPass] = useState(false);
   const [tutorial, setTutorial] = useState<TutorialFlags>(() => ({
     tipWelcome: false, tipMana: false, tipPlay: false, tipAttack: false, tipWin: false, tipTempo: false,
@@ -470,6 +474,8 @@ export default function DuelClient() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration of persisted preferences (mute + tutorial)
     setMuted(sound.muted);
     setTutorial(readTutorialFlags());
+    // the duel bed — real orchestral under the reactive paper-noise floor
+    sound.playMusic("duel");
     void startMatch();
   }, [startMatch]);
 
@@ -488,7 +494,7 @@ export default function DuelClient() {
             sound.paperSlide();
             break;
           case "PLAY_CARD": {
-            sound.penScratch();
+            sound.playUnit();
             next.dust = [...next.dust, { id: animId++, key: `u:${e.uid}` }];
             const pulled = getCard(e.cardId);
             if (pulled.rarity === "legendary") {
@@ -502,7 +508,7 @@ export default function DuelClient() {
             break;
           }
           case "SPELL":
-            sound.penScratch();
+            sound.playSpell();
             break;
           case "SUMMON":
             sound.pop();
@@ -517,6 +523,7 @@ export default function DuelClient() {
             // the AREA_PLAYED slide in the same drain keeps the sound subtle
             break;
           case "ATTACK": {
+            sound.attack();
             next.slash = {
               id: animId++,
               key: "uid" in e.target ? `u:${e.target.uid}` : `h:${e.target.hero}`,
@@ -539,6 +546,7 @@ export default function DuelClient() {
             break;
           case "HEAL":
             next.floaters = [...next.floaters, { id: animId++, key: `h:${e.side}`, n: e.n, kind: "heal" }];
+            sound.heal();
             break;
           case "FATIGUE":
             next.floaters = [...next.floaters, { id: animId++, key: `h:${e.side}`, n: e.n, kind: "fatigue" }];
@@ -631,7 +639,10 @@ export default function DuelClient() {
   }, [state, hotseat, mpInfo]);
 
   useEffect(() => {
-    return () => ambient.stop();
+    return () => {
+      ambient.stop();
+      sound.stopMusic();
+    };
   }, []);
 
   // record match result once — server recomputes Elo; local fallback offline.
@@ -643,8 +654,8 @@ export default function DuelClient() {
       const r = state.winner === "A" ? "WIN" : state.winner === "B" ? "LOSS" : "DRAW";
       // eslint-disable-next-line react-hooks/set-state-in-effect -- friendly duels resolve without a server round-trip
       setResult({ result: r, mmrBefore: 0, mmrAfter: 0 });
-      if (r !== "DRAW") sound.victoryDing(state.seed);
-      else sound.defeatNote(state.seed);
+      if (r !== "DRAW") sound.victorySting(state.seed);
+      else sound.defeatSting(state.seed);
       return;
     }
     if (mpInfo) {
@@ -664,8 +675,8 @@ export default function DuelClient() {
           durationMs: Date.now() - statsRef.current.startedAt,
         });
         setResult({ result: r, mmrBefore: 0, mmrAfter: 0 });
-        if (r === "WIN") sound.victoryDing(state.seed);
-        else if (r === "LOSS") sound.defeatNote(state.seed);
+        if (r === "WIN") sound.victorySting(state.seed);
+        else if (r === "LOSS") sound.defeatSting(state.seed);
       })();
       return;
     }
@@ -676,8 +687,8 @@ export default function DuelClient() {
       void (async () => {
         const res = await completeCampaignStage(campaignIdx, r);
         if (res) setResult({ result: r, mmrBefore: 0, mmrAfter: 0, campaign: res });
-        if (r === "WIN") sound.victoryDing(state.seed);
-        else sound.defeatNote(state.seed);
+        if (r === "WIN") sound.victorySting(state.seed);
+        else sound.defeatSting(state.seed);
       })();
       return;
     }
@@ -714,8 +725,8 @@ export default function DuelClient() {
         if (typeof window !== "undefined") window.localStorage.setItem("inkduel:mmr", String(newMmr));
         setResult({ result: r, mmrBefore, mmrAfter: newMmr });
       }
-      if (r === "WIN") sound.victoryDing(state.seed);
-      else if (r === "LOSS") sound.defeatNote(state.seed);
+      if (r === "WIN") sound.victorySting(state.seed);
+      else if (r === "LOSS") sound.defeatSting(state.seed);
       // the descent: the observed result advances (or ends) the run on the spot
       if (descent) {
         const run = loadRun();
@@ -1198,8 +1209,37 @@ export default function DuelClient() {
                   <button
                     type="button"
                     className={`focus-ink block ${playable ? "cursor-pointer" : "cursor-default"}`}
+                    style={{ WebkitTouchCallout: "none", touchAction: "manipulation" }}
                     onClick={() => onHandCardClick(card.uid)}
-                    aria-label={`${def.type === "area" ? "Set out" : "Play"} ${def.name}`}
+                    onPointerDown={() => {
+                      // hold to inspect — a plain tap releases before the timer fires
+                      inspectTimerRef.current = window.setTimeout(() => {
+                        inspectTimerRef.current = null;
+                        sound.handSelect();
+                        setInspectId(card.cardId);
+                      }, 420);
+                    }}
+                    onPointerUp={() => {
+                      if (inspectTimerRef.current !== null) {
+                        window.clearTimeout(inspectTimerRef.current);
+                        inspectTimerRef.current = null;
+                      }
+                    }}
+                    onPointerCancel={() => {
+                      // the hand row scrolls — a claimed drag gesture must not open the lens
+                      if (inspectTimerRef.current !== null) {
+                        window.clearTimeout(inspectTimerRef.current);
+                        inspectTimerRef.current = null;
+                      }
+                    }}
+                    onPointerLeave={() => {
+                      if (inspectTimerRef.current !== null) {
+                        window.clearTimeout(inspectTimerRef.current);
+                        inspectTimerRef.current = null;
+                      }
+                    }}
+                    onContextMenu={(e) => e.preventDefault()}
+                    aria-label={`${def.type === "area" ? "Set out" : "Play"} ${def.name}. Hold to read.`}
                   >
                     <div
                       style={
@@ -1419,6 +1459,55 @@ export default function DuelClient() {
           >
             <Stamp className="text-3xl md:text-4xl">MULLIGAN</Stamp>
             <HandNote className="text-xl leading-snug">your rival is shaping their opening hand — yours is next…</HandNote>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── card lens: hold a hand card to read it full-size ── */}
+      <AnimatePresence>
+        {inspectId && (
+          <motion.div
+            key="inspect"
+            className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 px-6 pb-10"
+            style={{ background: "rgba(23,20,15,0.85)" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onPointerDown={() => setInspectId(null)} // a fresh tap (the press that opened this has ended)
+          >
+            {(() => {
+              const card = getCard(inspectId);
+              return (
+                <>
+                  <motion.div
+                    initial={reduce ? { opacity: 0 } : { scale: 0.8, opacity: 0, rotate: -3 }}
+                    animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                    className="ink-frame-thin bg-cardstock p-2"
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <div style={{ width: "min(66vw, 280px)" }}>
+                      <CardFace card={card} size="collection" />
+                    </div>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.08 }}
+                    className="max-w-md text-center"
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <div className="label-type text-[11px] text-paper-deep/80">
+                      {card.type.toUpperCase()} · {card.rarity.toUpperCase()} · {card.cost} INK
+                    </div>
+                    <p className="font-hand mt-1 text-xl leading-snug text-paper-deep">
+                      {card.text || "—"}
+                    </p>
+                    <HandNote className="mt-2 text-base text-paper/70">tap anywhere to put it down</HandNote>
+                  </motion.div>
+                </>
+              );
+            })()}
           </motion.div>
         )}
       </AnimatePresence>
