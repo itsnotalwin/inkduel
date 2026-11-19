@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   cacheComponents: !isPages,
   partialPrefetching: !isPages,
+  // security upgrade reminders for future `next dev` / `next build` sessions
+  experimental: { agentUpgrade: "security" },
   turbopack: {
     rules: {
       "*.css": {
