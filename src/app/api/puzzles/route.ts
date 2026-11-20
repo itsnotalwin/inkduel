@@ -2,6 +2,7 @@ import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { fail, getSessionPlayer, ok } from "@/lib/session";
+import { evaluateAchievements } from "@/lib/achievement-eval";
 import { applyAction, makePuzzle, type Action } from "@/game/engine";
 import { DAILY_BONUS_INK, dailyPuzzle, dayStartMs, PUZZLES, PUZZLE_REWARD_INK } from "@/game/puzzles";
 
@@ -93,7 +94,9 @@ export async function POST(request: Request) {
     where: { playerId_puzzleId: { playerId: player.id, puzzleId } },
   });
   if (existing) {
-    return ok({ verified: true, inkAwarded: 0, alreadySolved: true });
+    // a re-solve pays nothing but can still retire an unclaimed achievement
+    const unlock = await evaluateAchievements(player.id).catch(() => null);
+    return ok({ verified: true, inkAwarded: 0, alreadySolved: true, ...(unlock ?? {}) });
   }
 
   const isDaily = puzzleId === dailyPuzzle(Date.now()).id;
@@ -119,5 +122,8 @@ export async function POST(request: Request) {
     throw err;
   }
 
-  return ok({ verified: true, inkAwarded, alreadySolved: false });
+  // achievements read the PuzzleSolved row just written. The solve is already
+  // paid — a failure here must not 500 the reward away, so it degrades.
+  const unlock = await evaluateAchievements(player.id).catch(() => null);
+  return ok({ verified: true, inkAwarded, alreadySolved: false, ...(unlock ?? {}) });
 }

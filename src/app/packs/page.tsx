@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ensureGuest, getMe, openPacks, type MeProfile, type PackResult } from "@/lib/api";
 import { getCard } from "@/game/cards";
 import { sound } from "@/lib/sound";
+import { AchievementToasts, type AchievementNotice } from "@/components/achievement-toast";
 import { CardFace } from "@/components/card/CardFace";
 import { HandNote, Panel, Stamp, StampButton, WashiTape } from "@/components/paper";
 import { PACK_COST, PACK_PREMIUM_COST, type PackType } from "@/game/packs";
@@ -32,6 +33,7 @@ export default function PacksPage() {
   const [error, setError] = useState<string | null>(null);
   const [pullScene, setPullScene] = useState<{ cardId: string; legendary: boolean } | null>(null);
   const [packType, setPackType] = useState<PackType>("standard");
+  const [notices, setNotices] = useState<AchievementNotice[]>([]);
 
   const costPer = packType === "collected" ? PACK_PREMIUM_COST : PACK_COST;
 
@@ -48,6 +50,7 @@ export default function PacksPage() {
     setResult(null);
     setRevealed(0);
     setPullScene(null);
+    setNotices([]);
     sound.packOpen(); // the wrapper tears
     const res = await openPacks(packs, packType);
     setOpening(false);
@@ -55,6 +58,7 @@ export default function PacksPage() {
       setError("Not enough ink for that many packs.");
       return;
     }
+    if (res.newAchievements && res.newAchievements.length > 0) setNotices(res.newAchievements);
     // cutscene: the highest-rarity pull gets a full-screen interstitial
     const best = [...res.cards].sort(
       (a, b) => RARITY_ORDER[getCard(b.cardId).rarity] - RARITY_ORDER[getCard(a.cardId).rarity],
@@ -80,6 +84,8 @@ export default function PacksPage() {
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-6 pb-16">
+      {/* achievement stamps earned by this open */}
+      <AchievementToasts items={notices} />
       {/* cutscene: legendary/epic pull interstitial */}
       <AnimatePresence>
         {pullScene && (

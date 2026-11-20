@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { fail, getSessionPlayer, ok } from "@/lib/session";
+import { evaluateAchievements } from "@/lib/achievement-eval";
 import { ownedCardIds } from "@/lib/collection";
 import { getCard } from "@/game/cards";
 import { canCraft, spendSlips, ZERO_SLIPS, CRAFT_COST, type Slips } from "@/game/packs";
@@ -43,8 +44,11 @@ export async function POST(request: Request) {
   const slipsAfter = spendSlips(slips, def.rarity);
   await prisma.player.update({
     where: { id: player.id },
-    data: { recycleSlips: slipsAfter, extraCards: [...extras, def.id] },
+    data: { recycleSlips: slipsAfter, extraCards: [...extras, def.id], cardsCrafted: { increment: 1 } },
   });
 
-  return ok({ cardId: def.id, rarity: def.rarity, slips: slipsAfter });
+  // achievements read the cardsCrafted counter just written — degrading keeps
+  // the crafted card delivered even if the unlock pass fails
+  const unlock = await evaluateAchievements(player.id).catch(() => null);
+  return ok({ cardId: def.id, rarity: def.rarity, slips: slipsAfter, ...(unlock ?? {}) });
 }

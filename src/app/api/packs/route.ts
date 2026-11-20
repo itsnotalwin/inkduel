@@ -2,6 +2,7 @@ import { randomInt } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { fail, getSessionPlayer, ok } from "@/lib/session";
+import { evaluateAchievements } from "@/lib/achievement-eval";
 import { ownedCardIds } from "@/lib/collection";
 import { PACK_COST, PACK_PREMIUM_COST, rollPack, slipsFromDuplicates, addSlips, ZERO_SLIPS, type PackType, type Slips } from "@/game/packs";
 
@@ -60,8 +61,12 @@ export async function POST(request: Request) {
   const flat = allResults.flat();
   await prisma.player.update({
     where: { id: player.id },
-    data: { coins: coinsAfter, extraCards: [...extras, ...newCards], recycleSlips: slipsAfter },
+    data: { coins: coinsAfter, extraCards: [...extras, ...newCards], recycleSlips: slipsAfter, packsOpened: { increment: packs } },
   });
+
+  // achievements read the packsOpened counter just written — degrading here
+  // keeps the opened cards flowing even if the unlock pass fails
+  const unlock = await evaluateAchievements(player.id).catch(() => null);
 
   return ok({
     cards: flat,
@@ -74,6 +79,7 @@ export async function POST(request: Request) {
     slipsEarned: earned,
     slips: slipsAfter,
     opened: new Date().toISOString(),
+    ...(unlock ?? {}),
   });
 }
 

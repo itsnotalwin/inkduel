@@ -47,3 +47,4 @@ prisma/dev.db
 *.db
 .api-stash
 .pages-test/
+.playwright-mcp/

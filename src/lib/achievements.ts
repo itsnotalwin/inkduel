@@ -24,6 +24,14 @@ export interface AchievementContext {
   bestStreak: number;
   mmr: number;
   customDeckCount: number;
+  /** Highest campaign frontier — stage index n cleared ⇒ campaignStage > n. */
+  campaignStage: number;
+  /** Server-tracked counters for the set-2 progression systems. */
+  packsOpened: number;
+  puzzlesSolved: number;
+  cardsCrafted: number;
+  /** True when the duel just recorded carried this week's live Blot mutation. */
+  blotActive: boolean;
   /** Stats from the match just played (all fields materialized). */
   match: MatchCore;
   /** Achievements the player already holds. */
@@ -43,6 +51,19 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { key: "librarian", name: "The Librarian", description: "Create 3 custom decks", icon: "shelf", check: (c) => c.customDeckCount >= 3 },
   { key: "survivor", name: "Fatigue Proof", description: "Win a match after taking fatigue damage", icon: "heart", check: (c) => c.match.result === "WIN" && c.match.tookFatigue },
   { key: "veteran", name: "Permanent Record", description: "Reach Platinum rank", icon: "stamp", check: (c) => c.mmr >= 1600 },
+  // ── set 2: the newer systems — campaign, packs, puzzles, draft, the blot ──
+  { key: "stage_one", name: "New Assignment", description: "Clear campaign stage 1", icon: "page", check: (c) => c.campaignStage >= 2 },
+  { key: "campaign_half", name: "Midnight Oil", description: "Clear 10 campaign stages", icon: "book", check: (c) => c.campaignStage >= 10 },
+  { key: "campaign_complete", name: "The Whole Edition", description: "Clear the full campaign", icon: "stamp", unlocksCard: "the_collected_works", check: (c) => c.campaignStage >= 20 },
+  { key: "pack_first", name: "Shrink-Wrapped", description: "Open your first pack", icon: "wax", check: (c) => c.packsOpened >= 1 },
+  { key: "pack_ten", name: "The Collector's Eye", description: "Open 10 packs", icon: "badge", check: (c) => c.packsOpened >= 10 },
+  { key: "pack_thirty", name: "Bound Volumes", description: "Open 30 packs", icon: "shelf", check: (c) => c.packsOpened >= 30 },
+  { key: "puzzle_first", name: "Marginalia", description: "Solve your first daily test", icon: "nib", check: (c) => c.puzzlesSolved >= 1 },
+  { key: "puzzle_archive", name: "The Proofreader", description: "Solve every test in the archive", icon: "pen", check: (c) => c.puzzlesSolved >= 6 },
+  { key: "draft_win", name: "Fresh Ink", description: "Win a duel with a drafted deck", icon: "clock", unlocksCard: "the_second_edition", check: (c) => c.match.opponentKey === "ink-draft" && c.match.result === "WIN" },
+  { key: "blot_survivor", name: "Stain Survivor", description: "Win a duel while a Blot mutation is live", icon: "target", check: (c) => c.blotActive && c.match.result === "WIN" },
+  { key: "comeback", name: "Second Draft", description: "Win a match with 5 HP or less", icon: "heart", unlocksCard: "the_eraser_of_ends", check: (c) => c.match.result === "WIN" && c.match.playerHpLeft <= 5 },
+  { key: "craft_first", name: "Paper Trail", description: "Craft a card from recycled slips", icon: "shield", check: (c) => c.cardsCrafted >= 1 },
 ];
 
 export const ACHIEVEMENT_BY_KEY = new Map(ACHIEVEMENTS.map((a) => [a.key, a]));

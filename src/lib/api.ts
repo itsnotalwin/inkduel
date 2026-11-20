@@ -18,7 +18,10 @@ import { ARCHETYPE_DECKS, COLLECTIBLE_CARDS, computeSetCompletion, getCard, pend
 import { applySeasonRollover, currentSeason, seasonLabel } from "@/lib/season";
 import { randomDeck } from "@/game/decks";
 import { CAMPAIGN_STAGES } from "@/game/campaign";
+import { blotActiveMutationFor } from "@/game/blot";
+import { DAILY_BONUS_INK, PUZZLES, dailyPuzzle, type Puzzle as PuzzleDef } from "@/game/puzzles";
 import { PACK_COST, PACK_PREMIUM_COST, rollPack, slipsFromDuplicates, addSlips, canCraft, spendSlips, ZERO_SLIPS, type PackFloor, type PackType, type Slips } from "@/game/packs";
+import type { Action } from "@/game/engine";
 import { STARTING_MMR } from "@/config";
 
 
@@ -76,6 +79,9 @@ interface LocalProfile {
   draws: number;
   streak: number;
   bestStreak: number;
+  /** Set-2 achievement counters (absent on older saves — defaulted on read). */
+  packsOpened?: number;
+  cardsCrafted?: number;
 }
 
 const PROFILE_KEY = "inkduel:profile";
@@ -259,6 +265,8 @@ export interface PackResult {
   packType?: PackType;
   slipsEarned?: Slips;
   slips?: Slips;
+  newAchievements?: { key: string; name: string; description: string; unlocksCard: string | null }[];
+  unlockedCards?: string[];
 }
 
 export function openPacks(packs = 1, type: PackType = "standard"): Promise<PackResult | null> {
@@ -290,9 +298,11 @@ export function openPacks(packs = 1, type: PackType = "standard"): Promise<PackR
     const slipsEarned = slipsFromDuplicates(cards);
     const slips = addSlips(localSlips(), slipsEarned);
     write("inkduel:slips", slips);
-    const updated: LocalProfile = { ...profile, coins: profile.coins - cost + totalRefund };
+    seedLocalAchievements(); // grandfather against the pre-open record
+    const updated: LocalProfile = { ...profile, coins: profile.coins - cost + totalRefund, packsOpened: (profile.packsOpened ?? 0) + packs };
     write(PROFILE_KEY, updated);
     write("inkduel:extraCards", [...extras]);
+    const unlock = evaluateLocalAchievements();
     return Promise.resolve({
       cards,
       newCards,
@@ -303,6 +313,7 @@ export function openPacks(packs = 1, type: PackType = "standard"): Promise<PackR
       packType: type,
       slipsEarned,
       slips,
+      ...unlock,
     });
   }
   return request<PackResult>("/api/packs", { method: "POST", body: JSON.stringify({ packs, type }) });
@@ -311,7 +322,7 @@ export function openPacks(packs = 1, type: PackType = "standard"): Promise<PackR
 // ── ink recycling (crafting) ────────────────────────────────────────────
 
 /** Craft an unowned card with duplicate slips. Null = not enough slips / already owned. */
-export function craftCard(cardId: string): Promise<Slips | null> {
+export function craftCard(cardId: string): Promise<(Slips & { newAchievements?: { key: string; name: string; description: string; unlocksCard: string | null }[]; unlockedCards?: string[] }) | null> {
   if (!CLOUD) {
     const slips = localSlips();
     let def;
@@ -325,12 +336,16 @@ export function craftCard(cardId: string): Promise<Slips | null> {
     if (owned.has(def.id) || !canCraft(slips, def.rarity)) return Promise.resolve(null);
     const after = spendSlips(slips, def.rarity);
     write("inkduel:slips", after);
+    seedLocalAchievements(); // grandfather against the pre-craft record
+    const profile = localProfile();
+    write(PROFILE_KEY, { ...profile, cardsCrafted: (profile.cardsCrafted ?? 0) + 1 });
     const extras = new Set(read<string[]>("inkduel:extraCards", []));
     extras.add(def.id);
     write("inkduel:extraCards", [...extras]);
-    return Promise.resolve(after);
+    const unlock = evaluateLocalAchievements();
+    return Promise.resolve({ ...after, ...unlock });
   }
-  return request<Slips>("/api/craft", { method: "POST", body: JSON.stringify({ cardId }) });
+  return request<Slips & { newAchievements?: { key: string; name: string; description: string; unlocksCard: string | null }[]; unlockedCards?: string[] }>("/api/craft", { method: "POST", body: JSON.stringify({ cardId }) });
 }
 
 // ── campaign ────────────────────────────────────────────────────────────
@@ -357,6 +372,8 @@ export interface CampaignResult {
   coinsAfter: number;
   progress: number;
   rewardCard: string | null;
+  newAchievements?: { key: string; name: string; description: string; unlocksCard: string | null }[];
+  unlockedCards?: string[];
 }
 
 export function getCampaign(): Promise<CampaignState | null> {
@@ -394,6 +411,7 @@ export function completeCampaignStage(stage: number, result: MatchResult): Promi
     if (stage !== progress) return Promise.resolve(null);
     const extras = new Set(read<string[]>("inkduel:extraCards", []));
     if (stageDef.rewardCard) extras.add(stageDef.rewardCard);
+    seedLocalAchievements(); // grandfather against the pre-clear record
     const updated: LocalProfile = {
       ...profile,
       coins: profile.coins + stageDef.rewardCoins,
@@ -401,12 +419,14 @@ export function completeCampaignStage(stage: number, result: MatchResult): Promi
     write(PROFILE_KEY, updated);
     write("inkduel:extraCards", [...extras]);
     write("inkduel:campaignStage", stage + 1);
+    const unlock = evaluateLocalAchievements();
     return Promise.resolve({
       cleared: true,
       coinsAwarded: stageDef.rewardCoins,
       coinsAfter: updated.coins,
       progress: stage + 1,
       rewardCard: stageDef.rewardCard ?? null,
+      ...unlock,
     });
   }
   return request<CampaignResult>("/api/campaign", {
@@ -574,9 +594,14 @@ function localAchievementKeys(matches: MatchDto[], profile: LocalProfile, custom
       if (m.result === "WIN" && m.tookFatigue) acc.tookFatigueWin = true;
       if (m.result === "WIN" && m.turns <= 8) acc.fastWin = true;
       if (m.result === "WIN" && m.playerHpLeft === 1) acc.lastPageWin = true;
+      if (m.result === "WIN" && m.playerHpLeft <= 5) acc.lowHpWin = true;
+      if (m.result === "WIN" && m.opponentKey === "ink-draft") acc.draftWin = true;
       return acc;
     },
-    { wins: 0, losses: 0, draws: 0, maxTurnDamage: 0, maxTurnKills: 0, tookFatigueWin: false, fastWin: false, lastPageWin: false },
+    {
+      wins: 0, losses: 0, draws: 0, maxTurnDamage: 0, maxTurnKills: 0,
+      tookFatigueWin: false, fastWin: false, lastPageWin: false, lowHpWin: false, draftWin: false,
+    },
   );
   const ctx = {
     wins: profile.wins + totals.wins,
@@ -586,11 +611,18 @@ function localAchievementKeys(matches: MatchDto[], profile: LocalProfile, custom
     bestStreak: profile.bestStreak,
     mmr: profile.mmr,
     customDeckCount,
+    campaignStage: read<number>("inkduel:campaignStage", 0),
+    packsOpened: profile.packsOpened ?? 0,
+    cardsCrafted: profile.cardsCrafted ?? 0,
+    puzzlesSolved: localSolvedPuzzles().length,
+    // the mirror only awards match-conditional checks over recorded wins, so a
+    // live Blot plus any win in the record earns Stain Survivor (paper edition)
+    blotActive: blotActiveMutationFor(Date.now()) !== null && totals.wins > 0,
     match: {
-      opponentKey: "",
+      opponentKey: totals.draftWin ? "ink-draft" : "",
       result: "WIN" as MatchResult,
       turns: 0,
-      playerHpLeft: totals.lastPageWin ? 1 : 30,
+      playerHpLeft: totals.lastPageWin ? 1 : totals.lowHpWin ? 5 : 30,
       botHpLeft: 0,
       seed: 0,
       deckUsed: [],
@@ -603,6 +635,53 @@ function localAchievementKeys(matches: MatchDto[], profile: LocalProfile, custom
   };
   for (const a of ACHIEVEMENTS) if (!held.has(a.key) && a.check(ctx)) held.add(a.key);
   return held;
+}
+
+const ACHIEVEMENTS_KEY = "inkduel:achievements";
+
+/** Set-1 keys — earned before unlock notices existed outside the duel screen. */
+const SET_ONE_KEYS = new Set([
+  "first_blood", "hat_trick", "last_page", "assassin", "speedrun", "gold_rush",
+  "scholar", "hunter", "perfect_trade", "librarian", "survivor", "veteran",
+]);
+
+/**
+ * One-time grandfathering: record set-1 achievements already derivable from
+ * the local record so veterans don't get twelve toasts when the notice system
+ * first runs. Call BEFORE the flow's state writes; every set-2 key stays
+ * fresh-eligible because its counters didn't exist before this shipped.
+ */
+function seedLocalAchievements(): void {
+  if (read<string[] | null>(ACHIEVEMENTS_KEY, null) !== null) return;
+  const profile = localProfile();
+  const decks = localDecks();
+  const held = localAchievementKeys(localMatches(), profile, decks.filter((d) => d.isCustom).length);
+  write(ACHIEVEMENTS_KEY, [...held].filter((k) => SET_ONE_KEYS.has(k)));
+}
+
+/**
+ * Persistently evaluate the paper-edition achievement set against the local
+ * record and return the just-unlocked ones. Callers invoke this after the
+ * state they should be judged on has been written (match saved, pack counted,
+ * puzzle solved, card crafted, campaign advanced).
+ */
+function evaluateLocalAchievements(): {
+  newAchievements: { key: string; name: string; description: string; unlocksCard: string | null }[];
+  unlockedCards: string[];
+} {
+  const profile = localProfile();
+  const decks = localDecks();
+  const held = localAchievementKeys(localMatches(), profile, decks.filter((d) => d.isCustom).length);
+  const persisted = read<string[]>(ACHIEVEMENTS_KEY, []);
+  const fresh = [...held].filter((k) => !persisted.includes(k));
+  if (fresh.length > 0) write(ACHIEVEMENTS_KEY, [...persisted, ...fresh]);
+  return {
+    newAchievements: fresh.map((key) => {
+      const a = ACHIEVEMENTS.find((x) => x.key === key)!;
+      return { key, name: a.name, description: a.description, unlocksCard: a.unlocksCard ?? null };
+    }),
+    unlockedCards: legendaryUnlocks(fresh),
+  };
 }
 
 function localMe(): MeProfile {
@@ -827,6 +906,106 @@ export function getMatchHistory(page = 1): Promise<{ matches: MatchDto[]; page: 
   return request<{ matches: MatchDto[]; page: number; pages: number; total: number }>(`/api/matches?page=${page}`);
 }
 
+// ── the archivist's tests (puzzles) ─────────────────────────────────────
+
+export interface PuzzleViewDto {
+  id: string;
+  title: string;
+  brief: string;
+  par: number;
+  rewardInk: number;
+  /** true = solved · false = unsolved · null = signed out */
+  solved: boolean | null;
+}
+
+export interface PuzzlesDataDto {
+  daily: PuzzleViewDto;
+  puzzles: PuzzleViewDto[];
+}
+
+export interface PuzzleSolveResult {
+  verified: boolean;
+  inkAwarded: number;
+  alreadySolved: boolean;
+  newAchievements?: { key: string; name: string; description: string; unlocksCard: string | null }[];
+  unlockedCards?: string[];
+}
+
+const PUZZLES_SOLVED_KEY = "inkduel:puzzlesSolved";
+
+function localSolvedPuzzles(): string[] {
+  return read<string[]>(PUZZLES_SOLVED_KEY, []);
+}
+
+function puzzleViews(solved: Set<string>, signedIn: boolean): PuzzlesDataDto {
+  const view = (p: PuzzleDef): PuzzleViewDto => ({
+    id: p.id,
+    title: p.title,
+    brief: p.brief,
+    par: p.par,
+    rewardInk: p.rewardInk,
+    solved: signedIn ? solved.has(p.id) : null,
+  });
+  return { daily: view(dailyPuzzle()), puzzles: PUZZLES.map(view) };
+}
+
+/**
+ * The archive with this player's solved stamps. The payload itself is pure
+ * date math, so the paper edition computes it locally with the same functions
+ * the server uses — the static export has no API to ask.
+ */
+export async function getPuzzles(): Promise<PuzzlesDataDto> {
+  const signedIn = typeof window !== "undefined" && window.localStorage.getItem("inkduel:playerId") !== null;
+  if (!CLOUD || !signedIn) {
+    return puzzleViews(new Set(localSolvedPuzzles()), signedIn);
+  }
+  const remote = await request<PuzzlesDataDto>("/api/puzzles");
+  if (remote) return remote;
+  // server unreachable — stamps from the local record keep the cabinet usable
+  return puzzleViews(new Set(localSolvedPuzzles()), true);
+}
+
+/**
+ * Submit a winning tape for a test. The engine replays it (locally, and again
+ * on the server for the cloud edition) before any ink is paid — the same
+ * tape-verification trick the multiplayer result route uses.
+ */
+export async function solvePuzzle(puzzleId: string, actions: ReplayAction[]): Promise<PuzzleSolveResult | null> {
+  const puzzle = PUZZLES.find((p) => p.id === puzzleId);
+  if (!puzzle) return null;
+
+  // verify the tape against the pure engine first — never pay for a broken one
+  const { applyAction, makePuzzle, positionChanged } = await import("@/game/engine");
+  let state = makePuzzle(puzzle.spec);
+  for (const action of actions as unknown as Action[]) {
+    const next = applyAction(state, action);
+    if (!positionChanged(state, next)) return null;
+    state = next;
+  }
+  if (state.winner !== "A") return null;
+
+  if (!CLOUD) {
+    seedLocalAchievements(); // grandfather against the pre-solve record
+    const solved = localSolvedPuzzles();
+    if (solved.includes(puzzleId)) return { verified: true, inkAwarded: 0, alreadySolved: true };
+    solved.push(puzzleId);
+    write(PUZZLES_SOLVED_KEY, solved);
+    const isDaily = puzzleId === dailyPuzzle(Date.now()).id;
+    const dayKey = todayKey();
+    const isDayFirst = read<string | null>("inkduel:puzzleLastDay", null) !== dayKey;
+    const inkAwarded = puzzle.rewardInk + (isDaily && isDayFirst ? DAILY_BONUS_INK : 0);
+    if (isDayFirst) write("inkduel:puzzleLastDay", dayKey);
+    const profile = localProfile();
+    write(PROFILE_KEY, { ...profile, coins: profile.coins + inkAwarded });
+    const unlock = evaluateLocalAchievements();
+    return { verified: true, inkAwarded, alreadySolved: false, ...unlock };
+  }
+  return request<PuzzleSolveResult>("/api/puzzles", {
+    method: "POST",
+    body: JSON.stringify({ puzzleId, actions }),
+  });
+}
+
 export function getMatch(id: string): Promise<MatchDetail | null> {
   if (!CLOUD) {
     const m = read<MatchDetail[]>(MATCHES_KEY, []).find((x) => x.id === id);
@@ -968,6 +1147,7 @@ function postMatchLocal(payload: Parameters<typeof postMatch>[0]): Promise<Match
     actions: payload.actions ?? null,
     actionLog: payload.actionLog ?? null,
   };
+  seedLocalAchievements(); // grandfather against the pre-match record
   const matches = read<MatchDetail[]>(MATCHES_KEY, []);
   matches.push(match);
   write(MATCHES_KEY, matches.slice(-100));
@@ -991,12 +1171,8 @@ function postMatchLocal(payload: Parameters<typeof postMatch>[0]): Promise<Match
     write(qKey, q);
   }
 
-  // achievements evaluated over the updated record
-  const decks = localDecks();
-  const held = localAchievementKeys([match as MatchDto], updated, decks.filter((d) => d.isCustom).length);
-  const before = localAchievementKeys([], profile, decks.filter((d) => d.isCustom).length);
-  const fresh = [...held].filter((k) => !before.has(k));
-  const unlocked = ACHIEVEMENTS.filter((a) => fresh.includes(a.key));
+  // achievements evaluated over the updated record (the match was just saved)
+  const unlock = evaluateLocalAchievements();
 
   return Promise.resolve({
     mmrBefore: profile.mmr,
@@ -1006,8 +1182,8 @@ function postMatchLocal(payload: Parameters<typeof postMatch>[0]): Promise<Match
     coinsAfter: updated.coins,
     rankBefore: rankNameFor(profile.mmr),
     rankAfter: rankNameFor(newMmr),
-    newAchievements: unlocked.map((a) => ({ key: a.key, name: a.name, description: a.description, unlocksCard: a.unlocksCard ?? null })),
-    unlockedCards: legendaryUnlocks(fresh),
+    newAchievements: unlock.newAchievements,
+    unlockedCards: unlock.unlockedCards,
     opponentMmr: botMmr,
   });
 }

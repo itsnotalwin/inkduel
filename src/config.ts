@@ -43,3 +43,42 @@ export function nextRank(mmr: number): (typeof RANKS)[number] | null {
   for (const r of RANKS) if (r.min > mmr) return r;
   return null;
 }
+
+// ── house challengers (matchmaking) ─────────────────────────────────────
+// Lives here — not in game/ai — so lightweight pages (the front page's
+// "find me an opponent") can matchmake without pulling the engine bundle.
+
+export type PolicyKey = "duelist" | "gambler" | "collector" | "archivist";
+
+export interface BotProfile {
+  key: PolicyKey;
+  name: string;
+  elo: number;
+  blurb: string;
+}
+
+export const BOTS: BotProfile[] = [
+  { key: "duelist", name: "The Duelist", elo: 900, blurb: "Aggro. Trades only when it must; otherwise the face is the place." },
+  { key: "gambler", name: "The Gambler", elo: 1050, blurb: "Chaos. A fresh random deck every duel and 35% of decisions made on a whim." },
+  { key: "collector", name: "The Collector", elo: 1150, blurb: "Value. Floods the board, draws cards, always plays on curve." },
+  { key: "archivist", name: "The Archivist", elo: 1400, blurb: "Control. Removes your biggest threat and wins with late legendaries." },
+];
+
+export const BOT_BY_KEY: Record<string, BotProfile> = Object.fromEntries(BOTS.map((b) => [b.key, b]));
+
+/** Choose the opponent whose Elo is nearest the player's MMR ± window, with slight randomization. */
+export function pickBot(playerMmr: number, window = MATCHMAKING_WINDOW, rand = Math.random): BotProfile {
+  const candidates = BOTS.filter((b) => Math.abs(b.elo - playerMmr) <= window);
+  if (candidates.length === 0) {
+    return BOTS.reduce((best, b) => (Math.abs(b.elo - playerMmr) < Math.abs(best.elo - playerMmr) ? b : best));
+  }
+  // weight nearer bots higher
+  const weights = candidates.map((b) => 1 / (1 + Math.abs(b.elo - playerMmr)));
+  const total = weights.reduce((a, w) => a + w, 0);
+  let roll = rand() * total;
+  for (let i = 0; i < candidates.length; i++) {
+    roll -= weights[i];
+    if (roll <= 0) return candidates[i];
+  }
+  return candidates[candidates.length - 1];
+}

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ensureGuest, getMe, craftCard, type MeProfile } from "@/lib/api";
+import { AchievementToasts, type AchievementNotice } from "@/components/achievement-toast";
 import { CardFace } from "@/components/card/CardFace";
 import { HandNote, Panel, StampButton, WashiTape } from "@/components/paper";
 import { ARCHIVE_SET_IDS, COLLECTIBLE_SETS, KEYWORD_LABEL, getCard, type CardDef, type Keyword } from "@/game/cards";
@@ -23,6 +24,7 @@ export default function CollectionPage() {
   const [setFilter, setSetFilter] = useState<SetFilter>("all");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<CardDef | null>(null);
+  const [notices, setNotices] = useState<AchievementNotice[]>([]);
 
   useEffect(() => {
     void (async () => {
@@ -52,6 +54,8 @@ export default function CollectionPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-6 pb-16">
+      {/* achievement stamps earned by crafting */}
+      <AchievementToasts items={notices} />
       <header className="mt-10 text-center">
         <div className="label-type text-[11px] text-graphite">EVERY CARD, DRAWN BY HAND</div>
         <h1 className="small-caps mt-1 border-y-4 border-ink py-3 text-5xl font-bold">The Collection</h1>
@@ -177,6 +181,7 @@ export default function CollectionPage() {
                     slips={me?.slips ?? ZERO_SLIPS}
                     onCrafted={(after) => {
                       setMe((cur) => (cur ? { ...cur, slips: after, collection: cur.collection.map((c) => (c.id === selected.id ? { ...c, owned: true } : c)) } : cur));
+                      if (after.newAchievements && after.newAchievements.length > 0) setNotices(after.newAchievements);
                     }}
                   />
                 ) : null}
@@ -214,7 +219,7 @@ function CraftHint({
 }: {
   card: CardDef;
   slips: Slips;
-  onCrafted: (after: Slips) => void;
+  onCrafted: (after: Slips & { newAchievements?: AchievementNotice[] }) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -230,7 +235,6 @@ function CraftHint({
     if (after) onCrafted(after);
     else setError("the archivist declined — check your slips");
   };
-
   return (
     <div className="mt-2">
       <div className="label-type text-[10px] text-graphite">

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { fail, getSessionPlayer, ok } from "@/lib/session";
+import { evaluateAchievements } from "@/lib/achievement-eval";
 import { CAMPAIGN_STAGES } from "@/game/campaign";
 
 /** Campaign progress + stage definitions. */
@@ -70,11 +71,15 @@ export async function POST(request: Request) {
         : {}),
     },
   });
+  // achievements read the campaign frontier just advanced — degrading keeps
+  // the stage-clear reward flowing even if the unlock pass fails
+  const unlock = await evaluateAchievements(player.id).catch(() => null);
   return ok({
     cleared: true,
     coinsAwarded: stageDef.rewardCoins,
     coinsAfter: updated.coins,
     progress: updated.campaignStage,
     rewardCard: stageDef.rewardCard ?? null,
+    ...(unlock ?? {}),
   });
 }

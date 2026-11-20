@@ -20,6 +20,8 @@ model Player {
   bestStreak   Int      @default(0)
   coins        Int      @default(150)
   campaignStage Int     @default(0)
+  packsOpened  Int      @default(0)
+  cardsCrafted Int      @default(0)
   lastLoginDate String?
   extraCards   Json?
   recycleSlips Json?

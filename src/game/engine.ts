@@ -310,6 +310,18 @@ export function makePuzzle(spec: PuzzleSpec): GameState {
   };
 }
 
+/**
+ * Whether two states differ in anything but the event/log stream — the puzzle
+ * harness's no-op detector: a move the engine rejects is silent. Exclude
+ * events/log so narrative-only entries (e.g. a rejected attack's note) never
+ * count as progress.
+ */
+export function positionChanged(a: GameState, b: GameState): boolean {
+  if (a === b) return false;
+  const strip = (s: GameState) => JSON.stringify({ ...s, events: undefined, log: undefined });
+  return strip(a) !== strip(b);
+}
+
 // ── Small helpers ───────────────────────────────────────────────────────
 
 function player(s: GameState, side: Side): PlayerState {

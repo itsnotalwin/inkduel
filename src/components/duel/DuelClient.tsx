@@ -9,6 +9,7 @@ import {
   createGame,
   drainEvents,
   getLegalActions,
+  makePuzzle,
   OTHER,
   type Action,
   type GameState,
@@ -21,11 +22,12 @@ import { DECK_PICKS, DRAFT_STASH_KEY } from "@/game/draft";
 import { blessingsToFirstBonus, claimWingbreaker, descentFloorBot, descentFloorSpec, floorSeed, loadRun, loseRun, saveRun, winFloor } from "@/game/descent";
 import { blotMutationFor } from "@/game/blot";
 import { campaignStage } from "@/game/campaign";
-import { decideAction, mulliganAction, pickBot, botDeckIds, type BotProfile } from "@/game/ai";
+import { decideAction, mulliganAction, pickBot, botDeckIds, BOT_BY_KEY, type BotProfile } from "@/game/ai";
 import { eloDelta } from "@/lib/elo";
 import { sound } from "@/lib/sound";
 import { ambient } from "@/lib/ambient";
-import { completeCampaignStage, ensureGuest, getDecks, mpAction, mpResult, mpState, postMatch, readMpDuel, type CampaignResult, type MatchPostResult } from "@/lib/api";
+import { completeCampaignStage, ensureGuest, getDecks, mpAction, mpResult, mpState, postMatch, readMpDuel, solvePuzzle, type CampaignResult, type MatchPostResult } from "@/lib/api";
+import { PUZZLES } from "@/game/puzzles";
 import { LegendaryFlourish, type FlourishState } from "./LegendaryFlourish";
 import { bumpDuelCount, dismissTutorialTip, readDuelCount, readTutorialFlags, TutorialTip, type TutorialFlags } from "@/components/onboarding/Tutorial";
 import { playVoice } from "@/lib/voice";
@@ -211,6 +213,8 @@ export default function DuelClient() {
   const draft = searchParams.get("draft") !== null;
   // the descent: ?descent=1 — a roguelite run read from its save file
   const descent = searchParams.get("descent") !== null;
+  // the archivist's tests: ?puzzle=<id> — an authored position, A to move and win
+  const puzzleId = searchParams.get("puzzle");
   // online duel: ?mp=<duelId>&side=A|B — lockstep over the action tape
   const mpInfo = useMemo(() => {
     const duelId = searchParams.get("mp");
@@ -223,6 +227,7 @@ export default function DuelClient() {
   const [mpError, setMpError] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [descentError, setDescentError] = useState<string | null>(null);
+  const [puzzleError, setPuzzleError] = useState<string | null>(null);
   const [anim, setAnim] = useState<AnimState>(EMPTY_ANIM);
   const [targeting, setTargeting] = useState<{ kind: "play" | "attack"; uid: string; targets: Target[] } | null>(null);
   const [mulliganPicks, setMulliganPicks] = useState<Set<string>>(new Set());
@@ -239,7 +244,7 @@ export default function DuelClient() {
     tipGuardMath: false, tipFatigue: false, tipTempoAdvanced: false,
   }));
   const [result, setResult] = useState<
-    { result: "WIN" | "LOSS" | "DRAW"; mmrBefore: number; mmrAfter: number; server?: MatchPostResult; campaign?: CampaignResult } | null
+    { result: "WIN" | "LOSS" | "DRAW"; mmrBefore: number; mmrAfter: number; server?: MatchPostResult; campaign?: CampaignResult; puzzle?: { inkAwarded: number; failed?: boolean; notices?: { key: string; name: string; description: string; unlocksCard: string | null }[] } } | null
   >(null);
   const stateRef = useRef<GameState | null>(null);
   useEffect(() => {
@@ -313,6 +318,7 @@ export default function DuelClient() {
     setAwaitingPass(false);
     setDraftError(null);
     setDescentError(null);
+    setPuzzleError(null);
     if (mpInfo) {
       mpRef.current = { duelId: mpInfo.duelId, side: mpInfo.side };
       mpTapeRef.current = [];
@@ -328,6 +334,35 @@ export default function DuelClient() {
       return;
     }
     mpRef.current = null;
+    if (puzzleId) {
+      // the archivist's test: the authored position IS the duel — no deck, no
+      // bot profile, no ranked record. The tape (both sides) is submitted on
+      // victory and the server replays it before paying any ink.
+      const puzzle = PUZZLES.find((p) => p.id === puzzleId);
+      if (!puzzle) {
+        setBot(null);
+        setState(null);
+        setPuzzleError("no such test in the archive — back to the cabinet");
+        return;
+      }
+      setBot(null);
+      setAnim(EMPTY_ANIM);
+      setTargeting(null);
+      setMulliganPicks(new Set());
+      setResult(null);
+      setTimer(TURN_SECONDS);
+      statsRef.current = {
+        maxTurnDamage: 0,
+        maxTurnKills: 0,
+        tookFatigue: false,
+        startedAt: Date.now(),
+        turnDamage: 0,
+        turnKills: 0,
+        deckEntries: [],
+      };
+      setState(makePuzzle(puzzle.spec));
+      return;
+    }
     if (draft) {
       // ink draft: both decks were sealed by /draft — rebuild the duel from the stash
       const stash = readDraftStash();
@@ -435,9 +470,12 @@ export default function DuelClient() {
       }
     }
     const playerMmr = localMmr();
+    // the front page's matchmaking desk names its challenger; honor it
+    const botParam = searchParams.get("bot");
+    const requested = botParam ? BOT_BY_KEY[botParam] : undefined;
     const chosenBot = stage
       ? { key: stage.policy as BotProfile["key"], name: stage.name, elo: 900 + stage.index * 50, blurb: stage.blurb }
-      : pickBot(playerMmr);
+      : requested ?? pickBot(playerMmr);
     // THE BLOT SPREADS: ordinary bot duels carry this week's table mutation —
     // campaign stages are authored and stay clean, mp duels stay symmetric.
     const blot = stage ? undefined : blotMutationFor(Date.now());
@@ -468,7 +506,7 @@ export default function DuelClient() {
     setState(
       createGame(matchSeed, expandDeck(deckEntries as DeckEntry[]), botDeck, "A", localName(), chosenBot.name, blot),
     );
-  }, [hotseat, draft, searchParams, mpInfo, setupMp]);
+  }, [hotseat, draft, descent, puzzleId, searchParams, mpInfo, setupMp]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration of persisted preferences (mute + tutorial)
@@ -650,6 +688,21 @@ export default function DuelClient() {
   // the campaign ledger instead of the ranked ladder.
   useEffect(() => {
     if (!state || state.phase !== "GAME_OVER" || result) return;
+    if (puzzleId) {
+      // the archivist's test — the tape (both sides) is the proof of the solve
+      const r = state.winner === "A" ? "WIN" : state.winner === "B" ? "LOSS" : "DRAW";
+      if (r === "WIN") sound.victorySting(state.seed);
+      else sound.defeatSting(state.seed);
+      void (async () => {
+        const res = await solvePuzzle(puzzleId, actionsRef.current);
+        if (res && res.verified) {
+          setResult({ result: r, mmrBefore: 0, mmrAfter: 0, puzzle: { inkAwarded: res.inkAwarded, notices: res.newAchievements } });
+        } else {
+          setResult({ result: r, mmrBefore: 0, mmrAfter: 0, puzzle: { inkAwarded: 0, failed: true } });
+        }
+      })();
+      return;
+    }
     if (hotseat) {
       const r = state.winner === "A" ? "WIN" : state.winner === "B" ? "LOSS" : "DRAW";
       // eslint-disable-next-line react-hooks/set-state-in-effect -- friendly duels resolve without a server round-trip
@@ -981,7 +1034,7 @@ export default function DuelClient() {
     setMulliganPicks(new Set());
   }, [mulliganSide]);
 
-  if (!state || (!bot && !hotseat && !mp)) {
+  if (!state || (!bot && !hotseat && !mp && !puzzleId)) {
     return (
       <main className="flex min-h-dvh items-center justify-center px-6 text-center">
         {mpError ? (
@@ -1003,6 +1056,13 @@ export default function DuelClient() {
             <HandNote className="max-w-md text-2xl leading-snug">{descentError}</HandNote>
             <Link href="/descent" className="stamp-btn focus-ink label-type px-4 py-2 text-xs">
               Back to the stair
+            </Link>
+          </div>
+        ) : puzzleError ? (
+          <div className="flex flex-col items-center gap-5">
+            <HandNote className="max-w-md text-2xl leading-snug">{puzzleError}</HandNote>
+            <Link href="/puzzles" className="stamp-btn focus-ink label-type px-4 py-2 text-xs">
+              Back to the tests
             </Link>
           </div>
         ) : (
@@ -1570,9 +1630,63 @@ export default function DuelClient() {
                   </div>
                 )}
                 {result.campaign.replay && <HandNote className="text-xl">a replayed stage — a modest purse</HandNote>}
+                {result.campaign.newAchievements && result.campaign.newAchievements.length > 0 && (
+                  <div className="flex flex-wrap justify-center gap-3">
+                    {result.campaign.newAchievements.map((a) => (
+                      <motion.div
+                        key={a.key}
+                        initial={reduce ? { opacity: 0 } : { scale: 2, opacity: 0, rotate: 10 }}
+                        animate={{ scale: 1, opacity: 1, rotate: -3 }}
+                        transition={{ delay: 0.6, type: "spring", stiffness: 300, damping: 16 }}
+                        className="flex flex-col items-center gap-1"
+                      >
+                        <Stamp tone="red" className="text-sm">{a.name}</Stamp>
+                        {a.unlocksCard && (
+                          <HandNote className="text-base">★ {getCard(a.unlocksCard).name}</HandNote>
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
                 <div className="mt-3">
                   <Link href="/campaign" className="label-type text-xs underline">
                     back to the campaign map →
+                  </Link>
+                </div>
+              </div>
+            ) : result.puzzle ? (
+              <div className="flex flex-col items-center gap-2 text-center">
+                {result.puzzle.failed ? (
+                  <HandNote className="text-2xl">the tape was rejected — no ink for stories that don&apos;t replay</HandNote>
+                ) : (
+                  <>
+                    <div className="label-type text-lg" style={{ color: "var(--color-red-stamp)" }}>
+                      +{result.puzzle.inkAwarded} INK
+                    </div>
+                    <HandNote className="mt-1 text-2xl">the tape replayed clean — the archivist pays in full</HandNote>
+                  </>
+                )}
+                {result.puzzle.notices && result.puzzle.notices.length > 0 && (
+                  <div className="flex flex-wrap justify-center gap-3">
+                    {result.puzzle.notices.map((a) => (
+                      <motion.div
+                        key={a.key}
+                        initial={reduce ? { opacity: 0 } : { scale: 2, opacity: 0, rotate: 10 }}
+                        animate={{ scale: 1, opacity: 1, rotate: -3 }}
+                        transition={{ delay: 0.6, type: "spring", stiffness: 300, damping: 16 }}
+                        className="flex flex-col items-center gap-1"
+                      >
+                        <Stamp tone="red" className="text-sm">{a.name}</Stamp>
+                        {a.unlocksCard && (
+                          <HandNote className="text-base">★ {getCard(a.unlocksCard).name}</HandNote>
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-3">
+                  <Link href="/puzzles" className="label-type text-xs underline">
+                    back to the tests →
                   </Link>
                 </div>
               </div>

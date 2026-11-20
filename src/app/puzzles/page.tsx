@@ -3,25 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ensureGuest } from "@/lib/api";
+import { ensureGuest, getPuzzles, type PuzzlesDataDto } from "@/lib/api";
 import { HandNote, Panel, Stamp, StampButton, WashiTape } from "@/components/paper";
 
-/** One row of the /api/puzzles payload (daily + archive share the shape). */
-interface PuzzleView {
-  id: string;
-  title: string;
-  brief: string;
-  par: number;
-  rewardInk: number;
-  solved: boolean | null;
-}
-
-interface PuzzlesData {
-  daily: PuzzleView;
-  puzzles: PuzzleView[];
-}
-
-function RewardStamps({ p }: { p: PuzzleView }) {
+function RewardStamps({ p }: { p: PuzzlesDataDto["daily"] }) {
   return (
     <span className="label-type text-[10px] text-graphite">
       PAR {p.par} · +{p.rewardInk} INK
@@ -29,20 +14,18 @@ function RewardStamps({ p }: { p: PuzzleView }) {
   );
 }
 
-function SolvedStamp({ p }: { p: PuzzleView }) {
+function SolvedStamp({ p }: { p: PuzzlesDataDto["daily"] }) {
   if (p.solved !== true) return null;
   return <Stamp tone="ink" className="text-[9px]">SOLVED</Stamp>;
 }
 
 export default function PuzzlesPage() {
-  const [data, setData] = useState<PuzzlesData | null>(null);
+  const [data, setData] = useState<PuzzlesDataDto | null>(null);
 
   useEffect(() => {
     void (async () => {
       await ensureGuest(); // so the solved stamps reflect this session's record
-      const res = await fetch("/api/puzzles");
-      const body = (await res.json()) as { ok: boolean; data?: PuzzlesData };
-      if (body.ok && body.data) setData(body.data);
+      setData(await getPuzzles());
     })();
   }, []);
 

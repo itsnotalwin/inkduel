@@ -7,7 +7,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { eloDelta, type MatchResult } from "@/lib/elo";
-import { ACHIEVEMENTS, legendaryUnlocks } from "@/lib/achievements";
+import { evaluateAchievements } from "@/lib/achievement-eval";
 import { getCard } from "@/game/cards";
 import type { DeckEntry } from "@/game/decks";
 import { questForDate, todayKey } from "@/lib/quests";
@@ -108,38 +108,20 @@ export async function recordMatch(input: RecordMatchInput) {
     });
   }
 
-  // achievements
-  const heldRows = await prisma.playerAchievement.findMany({ where: { playerId: player.id } });
-  const held = new Set(heldRows.map((h) => h.achievementKey));
-  const customDeckCount = await prisma.deck.count({ where: { playerId: player.id, isCustom: true } });
-  const ctx = {
-    wins: updated.wins,
-    losses: updated.losses,
-    draws: updated.draws,
-    streak: updated.streak,
-    bestStreak: updated.bestStreak,
-    mmr: updated.mmr,
-    customDeckCount,
-    match: {
-      opponentKey: input.opponentKey,
-      result: input.result,
-      turns: input.turns,
-      playerHpLeft: input.playerHpLeft,
-      botHpLeft: input.botHpLeft,
-      seed: input.seed,
-      deckUsed: input.deckUsed,
-      durationMs: input.durationMs ?? 0,
-      maxTurnDamage: input.maxTurnDamage ?? 0,
-      maxTurnKills: input.maxTurnKills ?? 0,
-      tookFatigue: input.tookFatigue ?? false,
-    },
-    held,
-  };
-  const newlyUnlocked = ACHIEVEMENTS.filter((a) => !held.has(a.key) && a.check(ctx));
-  for (const a of newlyUnlocked) {
-    await prisma.playerAchievement.create({ data: { playerId: player.id, achievementKey: a.key } });
-  }
-  const unlockedCards = legendaryUnlocks(newlyUnlocked.map((a) => a.key));
+  // achievements — one evaluation point shared with campaign/packs/puzzles/craft
+  const unlock = await evaluateAchievements(player.id, {
+    opponentKey: input.opponentKey,
+    result: input.result,
+    turns: input.turns,
+    playerHpLeft: input.playerHpLeft,
+    botHpLeft: input.botHpLeft,
+    seed: input.seed,
+    deckUsed: input.deckUsed,
+    durationMs: input.durationMs ?? 0,
+    maxTurnDamage: input.maxTurnDamage ?? 0,
+    maxTurnKills: input.maxTurnKills ?? 0,
+    tookFatigue: input.tookFatigue ?? false,
+  });
 
   return {
     mmrBefore: player.mmr,
@@ -149,8 +131,8 @@ export async function recordMatch(input: RecordMatchInput) {
     mmrDelta: delta,
     rankBefore: rankFor(player.mmr).name,
     rankAfter: rankFor(newMmr).name,
-    newAchievements: newlyUnlocked.map((a) => ({ key: a.key, name: a.name, description: a.description, unlocksCard: a.unlocksCard ?? null })),
-    unlockedCards,
+    newAchievements: unlock.newAchievements,
+    unlockedCards: unlock.unlockedCards,
     opponentMmr: input.opponentMmr,
   };
 }

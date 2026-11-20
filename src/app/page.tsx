@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ensureGuest, getMe, getMeta, getQuestToday, type MeProfile, type MetaData, type QuestDto } from "@/lib/api";
 import { resetTutorialFlags } from "@/components/onboarding/Tutorial";
 import { HandNote, StampButton, Stamp, WashiTape } from "@/components/paper";
@@ -10,7 +11,7 @@ import { RankBadge } from "@/components/rank-badge";
 import { CardFace } from "@/components/card/CardFace";
 import { getCard } from "@/game/cards";
 import { blotActiveMutationFor, type TableMutation } from "@/game/blot";
-import { GAME_NAME, GAME_TAGLINE, type RankKey } from "@/config";
+import { GAME_NAME, GAME_TAGLINE, pickBot, type BotProfile, type RankKey } from "@/config";
 import { sound } from "@/lib/sound";
 import { DEFAULT_VOICE, VOICES, PROLOGUE_LINE_IDS, preloadVoices, readVoicePref, setVoicePref } from "@/lib/voice";
 
@@ -37,11 +38,16 @@ const NAV = [
 ];
 
 export default function HomePage() {
+  const router = useRouter();
+  const reduce = useReducedMotion();
   const [me, setMe] = useState<MeProfile | null>(null);
   const [quest, setQuest] = useState<QuestDto | null>(null);
   const [meta, setMeta] = useState<MetaData | null>(null);
   const [playHref, setPlayHref] = useState("/duel");
   const [narrator, setNarrator] = useState<string>(DEFAULT_VOICE);
+  // matchmaking: a short ledger search, then the matched challenger on stage
+  const [matching, setMatching] = useState<"searching" | "found" | null>(null);
+  const [matched, setMatched] = useState<BotProfile | null>(null);
   // THE BLOT SPREADS — this week's table mutation (pure date math, no fetch)
   const [blot, setBlot] = useState<TableMutation | null>(null);
 
@@ -70,6 +76,19 @@ export default function HomePage() {
 
   const leadCard = meta?.topPlayed?.[0];
   const bestCard = meta?.bestWinRate?.[0];
+
+  /** The "find me an opponent" flow: riffle the ledger, then stamp the match. */
+  const findOpponent = () => {
+    sound.shuffle();
+    setMatched(null);
+    setMatching("searching");
+    window.setTimeout(() => {
+      const bot = pickBot(me?.mmr ?? 1000);
+      setMatched(bot);
+      setMatching("found");
+      sound.stamp();
+    }, 1400);
+  };
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-6 pb-16">
@@ -159,6 +178,15 @@ export default function HomePage() {
                 </StampButton>
               </motion.span>
             </Link>
+            <motion.span
+              className="inline-block"
+              whileHover={{ rotate: 2, scale: 1.04 }}
+              whileTap={{ rotate: -1, scale: 0.97 }}
+            >
+              <StampButton size="lg" className="text-2xl" onClick={findOpponent}>
+                FIND ME AN OPPONENT
+              </StampButton>
+            </motion.span>
             <Link href="/duel?mode=hotseat" className="focus-ink inline-flex items-center py-2">
               <HandNote className="text-xl underline decoration-dashed underline-offset-4">
                 or pass &amp; play with a friend →
@@ -313,6 +341,80 @@ export default function HomePage() {
           All rights reserved by whoever holds the pen
         </p>
       </footer>
+
+      {/* ── the matchmaking desk ── */}
+      <AnimatePresence>
+        {matching && (
+          <motion.div
+            key="matchmaking"
+            className="fixed inset-0 z-[80] flex items-center justify-center px-6"
+            style={{ background: "rgba(23,20,15,0.88)" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setMatching(null)}
+          >
+            {matching === "searching" ? (
+              <motion.div key="search" className="text-center" onClick={(e) => e.stopPropagation()}>
+                <motion.div
+                  animate={reduce ? {} : { rotate: [0, -4, 4, 0], y: [0, -6, 0] }}
+                  transition={{ repeat: Infinity, duration: 1.1, ease: "easeInOut" }}
+                >
+                  <Stamp className="text-3xl md:text-4xl">SEARCHING</Stamp>
+                </motion.div>
+                <HandNote className="mt-5 block text-2xl text-paper-deep">
+                  leafing through the ledger for an ink level like yours…
+                </HandNote>
+              </motion.div>
+            ) : matched ? (
+              <motion.div
+                key="found"
+                className="text-center"
+                initial={reduce ? { opacity: 0 } : { scale: 0.85, opacity: 0, rotate: -2 }}
+                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <HandNote className="text-xl text-paper/80">MATCH FOUND · YOUR INK {me?.mmr ?? 1000}</HandNote>
+                <div className="ink-frame mx-auto mt-3 max-w-sm bg-cardstock p-6">
+                  <div className="label-type text-[10px] text-graphite">HOUSE CHALLENGER</div>
+                  <h2 className="small-caps mt-1 text-4xl font-bold">{matched.name}</h2>
+                  <div className="label-type mt-1 text-xs text-graphite">{matched.elo} ELO</div>
+                  <p className="mt-3 font-hand text-xl leading-snug text-graphite">{matched.blurb}</p>
+                  <div className="mt-6">
+                    <StampButton
+                      size="lg"
+                      onClick={() => {
+                        sound.confirm();
+                        setMatching(null);
+                        router.push(`/duel?bot=${matched.key}`);
+                      }}
+                    >
+                      DUEL
+                    </StampButton>
+                  </div>
+                </div>
+                <div className="mt-5 flex items-center justify-center gap-6">
+                  <button
+                    type="button"
+                    className="focus-ink label-type py-2.5 text-xs text-paper-deep underline underline-offset-4"
+                    onClick={findOpponent}
+                  >
+                    find another
+                  </button>
+                  <button
+                    type="button"
+                    className="focus-ink label-type py-2.5 text-xs text-paper-deep underline underline-offset-4"
+                    onClick={() => setMatching(null)}
+                  >
+                    never mind
+                  </button>
+                </div>
+              </motion.div>
+            ) : null}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

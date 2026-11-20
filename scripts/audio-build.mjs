@@ -79,7 +79,10 @@ for (const [src, name] of SFX) {
 console.log("SFX done");
 
 for (const [src, name] of MUSIC) {
-  const out = join("public/music", `${name}.mp3`);
+  // the victory fanfare is a one-shot sting routed through the SFX engine —
+  // it lives in public/sfx; the rest are looping beds under public/music
+  const dir = name === "victory" ? "public/sfx" : "public/music";
+  const out = join(dir, `${name}.mp3`);
   if (existsSync(out)) continue;
   // stereo 128k, -20 LUFS bed level; trim trailing silence so loops feel tight
   run(["-i", join(SRC.music, src), "-af", "loudnorm=I=-20:TP=-1.5:LRA=9,silenceremove=stop_periods=-1:stop_duration=1.2:stop_threshold=-48dB,afade=t=out:st=0:d=0.001", "-ar", "44100", "-ac", "2", "-b:a", "128k", out]);
